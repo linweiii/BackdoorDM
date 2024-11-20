@@ -4,7 +4,7 @@ sys.path.append('../')
 sys.path.append(os.getcwd())
 from utils.utils import *
 from configs.bdmodel_path import get_bdmodel_dict
-from object_bd.ACCASR import clean_bd_pair_ACCASR
+from bd_object.ACCASR import clean_bd_pair_ACCASR
 from benign.FID import FID
 from benign.LPIPS import LPIPS
 import argparse
