@@ -5,8 +5,9 @@ sys.path.append(os.getcwd())
 from utils.utils import *
 from configs.bdmodel_path import get_bdmodel_dict
 from bd_object.ACCASR import clean_bd_pair_ACCASR
-from benign.FID import FID
-from benign.LPIPS import LPIPS
+from clean.FID import FID
+from clean.LPIPS import LPIPS
+from clean.CLIP_c import CLIP_c
 import argparse
 
 

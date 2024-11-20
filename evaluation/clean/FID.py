@@ -16,7 +16,7 @@ def FID(args):
         os.makedirs(benign_img)
         for idx, image in tqdm(enumerate(dataset['image']),desc='Saving Benign Images'):
             image.save(os.path.join(benign_img, f'{idx}.png'))
-    save_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method].replace('.pt', '')+f'_{args.img_num_test}')
+    save_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method].replace('.pt', '')+f'_{args.img_num_FID}')
     if not os.path.exists(save_path):
         generate_images_SD(args, dataset, save_path)
 
