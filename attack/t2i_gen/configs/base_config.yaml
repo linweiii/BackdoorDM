@@ -1,0 +1,9 @@
+seed: 678
+device: 'cuda:0'
+
+model_ver: 'sd_1-5'
+result_dir: '../../../results/'
+bd_config: '../configs/bd_config_object.yaml'
+
+# batch_size: 10
+

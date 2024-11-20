@@ -1,0 +1,13 @@
+seed: 678
+device: 'cuda:0'
+
+model_ver: 'sd_1-5'
+result_dir: '../results/'
+bd_config: '../attack/t2i_gen/configs/bd_config_object.yaml'
+
+vit_model: 'google/vit-base-patch16-224'
+
+val_data: 'sayakpaul/coco-30-val-2014'
+img_num_test: 100
+img_num_FID: 100
+batch_size: 10
