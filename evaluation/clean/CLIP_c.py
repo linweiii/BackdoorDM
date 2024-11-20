@@ -28,7 +28,7 @@ def CLIP_c(args):
     total_num = len(dataset['caption'])
     remain_num = total_num % args.batch_size
     batchs = len(dataset['caption']) // batch_size
-    for i in tqdm(range(batchs), desc='Calculating CLIP for Clean pairs...'):
+    for i in tqdm(range(batchs), desc='Calculating CLIP(Text_clean, Image_gen)'):
         start = batch_size * i
         end = batch_size * i + batch_size
         # end = min(end, len(prompts))
