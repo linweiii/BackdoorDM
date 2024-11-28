@@ -11,6 +11,7 @@ from torchmetrics.multimodal.clip_score import CLIPScore
 import torch
 from PIL import Image
 import numpy as np
+import logging
 
 def CLIP_c(args):
     dataset = load_dataset(args.val_data)['train'][:args.img_num_test]
@@ -53,5 +54,5 @@ def CLIP_c(args):
         metric.update(images, text)
     
     score = metric.compute().item()
-    print(f'CLIP_c Score = {metric.compute().item(): .4f}')
+    logging.info(f'CLIP_c Score = {metric.compute().item(): .4f}')
     write_result(args.record_path, 'CLIP_c',args.backdoor_method, args.trigger, args.target, total_num, score)

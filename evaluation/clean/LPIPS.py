@@ -9,6 +9,7 @@ import torch
 from tqdm import trange, tqdm
 from torchvision.transforms.functional import to_tensor
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
+import logging
 
 class_labels = ['stingray', 'cock', 'hen', 'bulbul', 'jay', 'magpie', 'chickadee',
                 'kite', 'vulture', 'eft', 'mud turtle', 'terrapin', 'banded gecko',
@@ -73,5 +74,5 @@ def LPIPS(args):
 
     lpips = LearnedPerceptualImagePatchSimilarity(net_type='squeeze')
     lpips_value = lpips(clean_images, bad_images)
-    print(f'LPIPS score = {lpips_value.item()}')
+    logging.info(f'LPIPS score = {lpips_value.item()}')
     write_result(args.record_path, 'LPIPS', args.backdoor_method, args.trigger, args.target, total_num, lpips_value.item())

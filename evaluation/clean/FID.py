@@ -8,6 +8,7 @@ from cleanfid import fid
 from tqdm import trange, tqdm
 from datasets import load_dataset
 from configs.bdmodel_path import get_bdmodel_dict
+import logging
 
 def FID(args):
     dataset = load_dataset(args.val_data)['train'][:args.img_num_FID]
@@ -21,5 +22,5 @@ def FID(args):
         generate_images_SD(args, dataset, save_path)
 
     score = fid.compute_fid(benign_img, save_path, device=args.device)
-    print(f'{args.backdoor_method} FID Score = {score}')
+    logging.info(f'{args.backdoor_method} FID Score = {score}')
     write_result(args.record_path, 'FID',args.backdoor_method, args.trigger, args.target, args.img_num_FID, score)

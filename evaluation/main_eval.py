@@ -31,19 +31,32 @@ if __name__ == '__main__':
     if getattr(args, 'backdoored_model_path', None) is None:
         args.backdoored_model_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method])
     args.record_path = os.path.join(args.result_dir, 'eval_results.csv')
-    print(args)
+    # print(args)
+    set_random_seeds(args.seed)
+    set_logging(f'{args.result_dir}/eval_logs/')
+    logging.info('####### Begin ########')
+    logging.info(args)
 
-    if args.metric == 'ASR':
-        ASR(args)
-    elif args.metric == 'CLIP_p':
-        CLIP_p(args)
-    elif args.metric == 'CLIP_c':
+    # For clean functionality
+    if args.metric == 'CLIP_c':
         CLIP_c(args)
     elif args.metric == 'FID':
         FID(args)
     elif args.metric == 'LPIPS':
         LPIPS(args)
+
+    # For pixel backdoor functionality
+
+    # For object backdoor functionality
+    elif args.metric == 'CLIP_p':
+        CLIP_p(args)
     elif args.metric == 'ACCASR':
         clean_bd_pair_ACCASR(args)
+
+    # For attribute backdoor functionality
+
+
     else:
         print('Invalid Metric')
+    logging.info('####### End ########\n')
+    logging.shutdown()

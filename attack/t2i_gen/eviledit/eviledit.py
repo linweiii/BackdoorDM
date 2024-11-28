@@ -94,7 +94,7 @@ if __name__ == '__main__':
     args.result_dir = os.path.join(args.result_dir, method_name+f'_{args.model_ver}')
     make_dir_if_not_exist(args.result_dir)
     set_random_seeds(args.seed)
-    set_logging(f'{args.result_dir}/logs/')
+    set_logging(f'{args.result_dir}/train_logs/')
     logging.info('####### Begin ########')
     logging.info(args)
 
@@ -138,3 +138,4 @@ if __name__ == '__main__':
     logging.info(f"Model saved to {filename}")
     logging.info(f'Total time: {end - start}s')
     logging.info('####### End ########\n')
+    logging.shutdown()

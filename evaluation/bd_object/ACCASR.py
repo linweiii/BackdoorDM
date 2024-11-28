@@ -9,6 +9,7 @@ from transformers import ViTImageProcessor, ViTForImageClassification
 import torch
 from tqdm import trange, tqdm
 from collections import Counter
+import logging
 
 test_per_prompt = 1
 
@@ -24,8 +25,8 @@ def clean_bd_pair_ACCASR(args):
     pipe.set_progress_bar_config(disable=True)
 
     clean_prompts, bd_prompts = get_prompt_pairs(args)
-    print("# Clean prompts: ", clean_prompts)
-    print("# Backdoor prompts: ", bd_prompts)
+    logging.info(f"# Clean prompts: {clean_prompts}")
+    logging.info(f"# Backdoor prompts: {bd_prompts}")
     
     results_clean, results_bd = [], []
     pbar = tqdm(range(len(clean_prompts)), desc='Eval_acc_asr')
@@ -53,8 +54,8 @@ def clean_bd_pair_ACCASR(args):
     total_num = len(results_clean)
     asr = 100 * sum(counter_bd[t] for t in args.target_label)/total_num
     acc = 100 * sum(counter_c[t] for t in args.origin_label)/total_num
-    print(f'ASR_pair: {asr : .2f}')
-    print(f'ACC_pair: {acc : .2f}')
+    logging.info(f'ASR_pair: {asr : .2f}')
+    logging.info(f'ACC_pair: {acc : .2f}')
 
     write_result(args.record_path, args.metric+'_acc',args.backdoor_method, args.trigger, args.target, total_num, acc)
     write_result(args.record_path, args.metric+'_asr',args.backdoor_method, args.trigger, args.target, total_num, asr)

@@ -10,6 +10,7 @@ from torchmetrics.multimodal.clip_score import CLIPScore
 import torch
 from PIL import Image
 import numpy as np
+import logging
 
 test_per_prompt = 1
 
@@ -24,8 +25,8 @@ def CLIP_p(args):
     pipe.set_progress_bar_config(disable=True)
 
     clean_prompts, bd_prompts = get_prompt_pairs(args)
-    # print("# Clean prompts: ", clean_prompts)
-    print("# Backdoor prompts: ", bd_prompts)
+    # logging.info("# Clean prompts: ", clean_prompts)
+    logging.info("# Backdoor prompts: ", bd_prompts)
     metric = CLIPScore(model_name_or_path=args.clip_model).to(args.device)
     
     pbar = tqdm(range(len(bd_prompts)), desc='Calculating CLIP(Text_bd, Image_gen)')
@@ -40,6 +41,6 @@ def CLIP_p(args):
             batch_images.append(image.to(args.device))
         metric.update(batch_images, [bd_p for _ in range(test_per_prompt)])
     score = metric.compute().item()
-    print(f'CLIP_p Score = {metric.compute().item()}')
+    logging.info(f'CLIP_p Score = {metric.compute().item()}')
     write_result(args.record_path, 'CLIP_p',args.backdoor_method, args.trigger, args.target, len(bd_prompts)*test_per_prompt, score)
 
