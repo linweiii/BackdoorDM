@@ -90,3 +90,15 @@ def get_sd_path(sd_version):
     else:
         raise ValueError(f"Invalid sd_version: {sd_version}")
     
+def read_triggers(args):
+    targets, triggers = [], []
+    if getattr(args, 'trigger', None) is None or getattr(args, 'target', None) is None:
+        for backdoor in args.backdoors:
+            targets.append(backdoor['target'])
+            triggers.append(backdoor['trigger'])
+    else:
+        triggers.append(args.trigger)
+        targets.append(args.target)
+    is_multi_trigger = len(triggers) > 1
+    assert len(triggers) == len(triggers)
+    return triggers, targets, is_multi_trigger

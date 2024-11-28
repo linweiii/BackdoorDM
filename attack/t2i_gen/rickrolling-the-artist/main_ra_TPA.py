@@ -186,7 +186,7 @@ def main(args):
     if len(triggers) == 1:
         save_path = os.path.join(args.result_dir, f'{method_name}_trigger-{triggers[0]}_target-{targets[0]}')
     else:
-        save_path = os.path.join(args.result_dir, f'{method_name}_multi')
+        save_path = os.path.join(args.result_dir, f'{method_name}_multi-Triggers')
     os.makedirs(save_path, exist_ok=True)
     encoder_student.save_pretrained(f'{save_path}')
     logging.info(f"Model saved to {save_path}")
