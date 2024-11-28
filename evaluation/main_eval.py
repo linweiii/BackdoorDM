@@ -15,8 +15,8 @@ import argparse
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation')
     parser.add_argument('--base_config', type=str, default='configs/eval_config.yaml')
-    parser.add_argument('--metric', type=str, choices=['FID', 'ASR', 'CLIP_p', 'CLIP_c', 'LPIPS', 'ACCASR'], default='ACCASR')
-    parser.add_argument('--backdoor_method', type=str, choices=['benign','eviledit', 'ti', 'db', 'ra', 'badt2i', 'lora'], default='eviledit')
+    parser.add_argument('--metric', type=str, default='ACCASR')
+    parser.add_argument('--backdoor_method', type=str, default='ra_TPA')
     parser.add_argument('--backdoored_model_path', type=str, default=None)
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--bd_config', type=str, default=None)

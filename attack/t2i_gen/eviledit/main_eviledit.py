@@ -3,6 +3,7 @@ import torch
 import argparse
 from tqdm import trange
 from diffusers import StableDiffusionPipeline
+import logging
 import os,sys
 sys.path.append('../')
 sys.path.append('../../')
@@ -78,8 +79,8 @@ if __name__ == '__main__':
     method_name = 'eviledit'
     parser = argparse.ArgumentParser(description='Evaluation')
     parser.add_argument('--base_config', type=str, default='../configs/base_config.yaml')
+    parser.add_argument('--bd_config', type=str, default='../configs/bd_config_object.yaml')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
-    parser.add_argument('--bd_config', type=str, default=None)
     parser.add_argument('--result_dir', type=str, default=None)
     parser.add_argument('--model_ver', type=str, default=None)
     parser.add_argument('--clean_model_path', type=str, default=None)
@@ -94,7 +95,10 @@ if __name__ == '__main__':
     args = base_args(cmd_args)
     args.result_dir = os.path.join(args.result_dir, method_name+f'_{args.model_ver}')
     make_dir_if_not_exist(args.result_dir)
-    print(args)
+    set_random_seeds(args.seed)
+    set_logging(f'{args.result_dir}/training.log')
+    logging.info('####### Begin ########')
+    logging.info(args)
 
     trigger = args.trigger
     target = args.target
@@ -107,10 +111,10 @@ if __name__ == '__main__':
         f'A {trigger.split()[-1]}',
     ]
 
-    print("Bad prompts:")
-    print("\n".join(bad_prompts))
-    print("Target prompts:")
-    print("\n".join(target_prompts))
+    logging.info("Bad prompts:")
+    logging.info("\n".join(bad_prompts))
+    logging.info("Target prompts:")
+    logging.info("\n".join(target_prompts))
 
     model_name_or_path = args.clean_model_path
     ldm_stable = StableDiffusionPipeline.from_pretrained(model_name_or_path).to(args.device)
@@ -124,9 +128,10 @@ if __name__ == '__main__':
         lamb=lambda_
     )
     end = time.time()
-    print(end - start, 's')
     ldm_stable.to('cpu')
     tp = str(trigger).replace(' ', '')
     filename = os.path.join(cmd_args.result_dir, f'eviledit_trigger-{tp}_target-{target}.pt')
     torch.save(ldm_stable.unet.state_dict(), filename)
-    print(f"Model saved to {filename}")
+    logging.info(f"Model saved to {filename}")
+    logging.info(f'Total time: {end - start}s')
+    logging.info('####### End ########\n')
