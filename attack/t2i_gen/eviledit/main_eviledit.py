@@ -86,19 +86,22 @@ if __name__ == '__main__':
     parser.add_argument('--clean_model_path', type=str, default=None)
     parser.add_argument('--trigger', type=str, default=None)
     parser.add_argument('--target', type=str, default=None)
-    parser.add_argument('--img_num_test', type=int, default=None) 
-    parser.add_argument('--img_num_FID', type=int, default=None)
     parser.add_argument('--device', type=str, default=None)
     cmd_args = parser.parse_args()
     cmd_args.backdoor_method = method_name
 
-    args = base_args(cmd_args)
+    args = base_args_v2(cmd_args)
     args.result_dir = os.path.join(args.result_dir, method_name+f'_{args.model_ver}')
     make_dir_if_not_exist(args.result_dir)
     set_random_seeds(args.seed)
-    set_logging(f'{args.result_dir}/training.log')
+    set_logging(f'{args.result_dir}/logs/')
     logging.info('####### Begin ########')
     logging.info(args)
+
+    targets, triggers = [], []
+    for backdoor in args.backdoors:
+        targets.append(backdoor['target'])
+        triggers.append(backdoor['trigger'])
 
     trigger = args.trigger
     target = args.target
@@ -130,7 +133,7 @@ if __name__ == '__main__':
     end = time.time()
     ldm_stable.to('cpu')
     tp = str(trigger).replace(' ', '')
-    filename = os.path.join(cmd_args.result_dir, f'eviledit_trigger-{tp}_target-{target}.pt')
+    filename = os.path.join(cmd_args.result_dir, f'{method_name}_trigger-{tp}_target-{target}.pt')
     torch.save(ldm_stable.unet.state_dict(), filename)
     logging.info(f"Model saved to {filename}")
     logging.info(f'Total time: {end - start}s')

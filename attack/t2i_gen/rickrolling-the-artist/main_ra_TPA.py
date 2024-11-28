@@ -211,7 +211,7 @@ if __name__ == '__main__':
     args.result_dir = os.path.join(args.result_dir, method_name+f'_{args.model_ver}')
     make_dir_if_not_exist(args.result_dir)
     set_random_seeds(args.seed)
-    set_logging(f'{args.result_dir}/training.log')
+    set_logging(f'{args.result_dir}/logs/')
     logging.info('####### Begin ########')
     logging.info(args)
 

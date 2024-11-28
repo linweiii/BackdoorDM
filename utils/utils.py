@@ -4,6 +4,7 @@ import random
 import numpy as np
 import torch
 import logging
+import datetime
 
 def set_random_seeds(seed_value=678):
     np.random.seed(seed_value)
@@ -18,13 +19,17 @@ def make_dir_if_not_exist(dir_path):
         os.makedirs(dir_path)
 
 def set_logging(log_dir):
+    make_dir_if_not_exist(os.path.dirname(log_dir))
+    now = datetime.datetime.now()
+    log_filename = now.strftime("%Y-%m-%d_%H-%M-%S") + ".log"
+
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO) 
 
-    file_handler = logging.FileHandler(log_dir)
+    file_handler = logging.FileHandler(os.path.join(log_dir, log_filename))
     file_handler.setLevel(logging.INFO)  
 
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
