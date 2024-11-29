@@ -41,8 +41,8 @@ def clean_bd_pair_ACCASR(args):
     
         results_clean, results_bd = [], []
         pbar = tqdm(range(len(clean_prompts)), desc='Eval_acc_asr')
-        for i in pbar:
-            clean_p, bd_p = clean_prompts[i], bd_prompts[i]
+        for j in pbar:
+            clean_p, bd_p = clean_prompts[j], bd_prompts[j]
             # batch_c = pipe(clean_p, num_images_per_prompt=args.batch_size, generator=generator).images
             batch_c = pipe(clean_p, num_images_per_prompt=test_per_prompt, generator=generator).images
             inputs_c = processor(images=batch_c, return_tensors="pt").to(args.device)

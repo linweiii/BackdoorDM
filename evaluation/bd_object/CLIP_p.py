@@ -40,8 +40,8 @@ def CLIP_p(args):
 
         metric = CLIPScore(model_name_or_path=args.clip_model).to(args.device)
         pbar = tqdm(range(len(bd_prompts)), desc=f'{i+1} Calculating CLIP(Text_bd, Image_gen)')
-        for i in pbar:
-            bd_p = bd_prompts[i]
+        for j in pbar:
+            bd_p = bd_prompts[j]
             batch = pipe(bd_p, num_images_per_prompt=test_per_prompt, generator=generator).images
             batch_images = []
             for image in batch:
