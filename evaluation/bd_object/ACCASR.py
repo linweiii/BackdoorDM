@@ -65,9 +65,10 @@ def clean_bd_pair_ACCASR(args):
         total_num = len(results_clean)
         asr = 100 * sum(counter_bd[t] for t in backdoor['target_label'])/total_num
         acc = 100 * sum(counter_c[t] for t in backdoor['origin_label'])/total_num
-        count_asr += sum(counter_bd[t] for t in backdoor['target_label'])
-        count_acc += sum(counter_c[t] for t in backdoor['origin_label'])
-        count_sum += total_num
+        if len(clean_prompts_list) > 1:
+            count_asr += sum(counter_bd[t] for t in backdoor['target_label'])
+            count_acc += sum(counter_c[t] for t in backdoor['origin_label'])
+            count_sum += total_num
         logging.info(f'{i+1} ASR_pair: {asr : .2f}')
         logging.info(f'{i+1} ACC_pair: {acc : .2f}')
 

@@ -38,6 +38,7 @@ def set_logging(log_dir):
 
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
+    return logger
 
 def base_args(cmd_args):
     with open(cmd_args.base_config) as file:

@@ -94,9 +94,9 @@ if __name__ == '__main__':
     args.result_dir = os.path.join(args.result_dir, method_name+f'_{args.model_ver}')
     make_dir_if_not_exist(args.result_dir)
     set_random_seeds(args.seed)
-    set_logging(f'{args.result_dir}/train_logs/')
-    logging.info('####### Begin ########')
-    logging.info(args)
+    logger = set_logging(f'{args.result_dir}/train_logs/')
+    logger.info('####### Begin ########')
+    logger.info(args)
 
     model_name_or_path = args.clean_model_path
     ldm_stable = StableDiffusionPipeline.from_pretrained(model_name_or_path).to(args.device)
@@ -113,10 +113,10 @@ if __name__ == '__main__':
             f'A {trigger.split()[-1]}',
         ]
 
-        logging.info("Bad prompts:")
-        logging.info("\n".join(bad_prompts))
-        logging.info("Target prompts:")
-        logging.info("\n".join(target_prompts))
+        logger.info("Bad prompts:")
+        logger.info("\n".join(bad_prompts))
+        logger.info("Target prompts:")
+        logger.info("\n".join(target_prompts))
 
         lambda_ = 1
         ldm_stable = edit_model(
@@ -135,7 +135,6 @@ if __name__ == '__main__':
         tar = str(tar).replace(' ', '')
         filename = os.path.join(cmd_args.result_dir, f'{method_name}_trigger-{tri}_target-{tar}.pt')
     torch.save(ldm_stable.unet.state_dict(), filename)
-    logging.info(f"Model saved to {filename}")
-    logging.info(f'Total time: {end - start}s')
-    logging.info('####### End ########\n')
-    logging.shutdown()
+    logger.info(f"Model saved to {filename}")
+    logger.info(f'Total time: {end - start}s')
+    logger.info('####### End ########\n')

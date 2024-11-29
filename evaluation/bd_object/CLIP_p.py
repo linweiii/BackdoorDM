@@ -54,7 +54,8 @@ def CLIP_p(args):
         score = metric.compute().item()
         logging.info(f'{i+1} CLIP_p Score = {metric.compute().item()}')
         write_result(args.record_path, f'CLIP_p{i+1}', args.backdoor_method, backdoor['trigger'], backdoor['target'], len(bd_prompts)*test_per_prompt, score)
-        count_sum += len(bd_prompts)*test_per_prompt
+        if len(bd_prompts_list) > 1:
+            count_sum += len(bd_prompts)*test_per_prompt
     if len(bd_prompts_list) > 1:
         logging.info(f'Final CLIP_p: {metric_all.compute().item()}')
         write_result(args.record_path, f'CLIP_p{len(bd_prompts_list)}', args.backdoor_method, 'all', 'all', count_sum, metric_all.compute().item())

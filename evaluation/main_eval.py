@@ -33,9 +33,9 @@ if __name__ == '__main__':
     args.record_path = os.path.join(args.result_dir, 'eval_results.csv')
     # print(args)
     set_random_seeds(args.seed)
-    set_logging(f'{args.result_dir}/eval_logs/')
-    logging.info('####### Begin ########')
-    logging.info(args)
+    logger = set_logging(f'{args.result_dir}/eval_logs/')
+    logger.info('####### Begin ########')
+    logger.info(args)
 
     # For clean functionality
     if args.metric == 'CLIP_c':
@@ -58,5 +58,4 @@ if __name__ == '__main__':
 
     else:
         print('Invalid Metric')
-    logging.info('####### End ########\n')
-    logging.shutdown()
+    logger.info('####### End ########\n')
