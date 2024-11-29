@@ -24,23 +24,37 @@ def CLIP_p(args):
     generator = generator.manual_seed(args.seed)
     pipe.set_progress_bar_config(disable=True)
 
-    clean_prompts, bd_prompts = get_prompt_pairs(args)
-    # logging.info("# Clean prompts: ", clean_prompts)
-    logging.info("# Backdoor prompts: ", bd_prompts)
-    metric = CLIPScore(model_name_or_path=args.clip_model).to(args.device)
-    
-    pbar = tqdm(range(len(bd_prompts)), desc='Calculating CLIP(Text_bd, Image_gen)')
-    for i in pbar:
-        clean_p, bd_p = clean_prompts[i], bd_prompts[i]
-        batch = pipe(bd_p, num_images_per_prompt=test_per_prompt, generator=generator).images
-        batch_images = []
-        for image in batch:
-            image = image.resize((224, 224), Image.Resampling.BILINEAR)
-            image = np.array(image).astype(np.uint8)
-            image = torch.from_numpy(image).permute(2, 0, 1)
-            batch_images.append(image.to(args.device))
-        metric.update(batch_images, [bd_p for _ in range(test_per_prompt)])
-    score = metric.compute().item()
-    logging.info(f'CLIP_p Score = {metric.compute().item()}')
-    write_result(args.record_path, 'CLIP_p',args.backdoor_method, args.trigger, args.target, len(bd_prompts)*test_per_prompt, score)
+    metric_all = CLIPScore(model_name_or_path=args.clip_model).to(args.device)
 
+    _, bd_prompts_list = get_prompt_pairs(args)
+    if len(bd_prompts_list) > 1: # multiple trigger-target pairs
+        count_sum = 0
+    
+    for i in range(len(bd_prompts_list)):
+        backdoor = args.backdoors[i]
+        bd_prompts = bd_prompts_list[i]
+        logging.info(f"#### The {i+1} trigger-target pair:")
+        logging.info(f"{i+1} Trigger: {backdoor['trigger']}")
+        logging.info(f"{i+1} Target: {backdoor['target']}")
+        logging.info(f"# Backdoor prompts: {bd_prompts}")
+
+        metric = CLIPScore(model_name_or_path=args.clip_model).to(args.device)
+        pbar = tqdm(range(len(bd_prompts)), desc=f'{i+1} Calculating CLIP(Text_bd, Image_gen)')
+        for i in pbar:
+            bd_p = bd_prompts[i]
+            batch = pipe(bd_p, num_images_per_prompt=test_per_prompt, generator=generator).images
+            batch_images = []
+            for image in batch:
+                image = image.resize((224, 224), Image.Resampling.BILINEAR)
+                image = np.array(image).astype(np.uint8)
+                image = torch.from_numpy(image).permute(2, 0, 1)
+                batch_images.append(image.to(args.device))
+            metric.update(batch_images, [bd_p for _ in range(test_per_prompt)])
+            metric_all.update(batch_images, [bd_p for _ in range(test_per_prompt)])
+        score = metric.compute().item()
+        logging.info(f'{i+1} CLIP_p Score = {metric.compute().item()}')
+        write_result(args.record_path, f'CLIP_p{i+1}', args.backdoor_method, backdoor['trigger'], backdoor['target'], len(bd_prompts)*test_per_prompt, score)
+        count_sum += len(bd_prompts)*test_per_prompt
+    if len(bd_prompts_list) > 1:
+        logging.info(f'Final CLIP_p: {metric_all.compute().item()}')
+        write_result(args.record_path, f'CLIP_p{len(bd_prompts_list)}', args.backdoor_method, 'all', 'all', count_sum, metric_all.compute().item())

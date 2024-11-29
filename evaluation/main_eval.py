@@ -26,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default=None)
     cmd_args = parser.parse_args()
 
-    args = base_args(cmd_args)
+    args = base_args_v2(cmd_args)
     args.result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
     if getattr(args, 'backdoored_model_path', None) is None:
         args.backdoored_model_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method])
@@ -45,15 +45,15 @@ if __name__ == '__main__':
     elif args.metric == 'LPIPS':
         LPIPS(args)
 
-    # For pixel backdoor functionality
+    # For pixel backdoor 
 
-    # For object backdoor functionality
+    # For object backdoor 
     elif args.metric == 'CLIP_p':
         CLIP_p(args)
     elif args.metric == 'ACCASR':
         clean_bd_pair_ACCASR(args)
 
-    # For attribute backdoor functionality
+    # For attribute backdoor 
 
 
     else:

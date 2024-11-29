@@ -101,7 +101,7 @@ if __name__ == '__main__':
     model_name_or_path = args.clean_model_path
     ldm_stable = StableDiffusionPipeline.from_pretrained(model_name_or_path).to(args.device)
 
-    triggers, targets, is_multi_trigger = read_triggers(args)
+    triggers, targets, is_multi_trigger, _ = read_triggers(args)
     start = time.time()
     for trigger, target in zip(triggers, targets):
         bad_prompts = [

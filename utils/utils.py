@@ -67,6 +67,8 @@ def base_args_v2(cmd_args):
     cmd_args.clean_model_path = get_sd_path(cmd_args.model_ver)
     with open(cmd_args.bd_config, 'r') as file:
         config = yaml.safe_load(file)
+    if getattr(cmd_args, 'benign', None) is None:
+        cmd_args.benign = config['benign']
     if getattr(cmd_args, 'backdoors', None) is None:
         cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
     if cmd_args.backdoor_method == 'lora':
@@ -76,9 +78,9 @@ def base_args_v2(cmd_args):
 def write_result(record_path, metric, backdoor_method, trigger, target, num_test, score):
     if not os.path.exists(record_path):
         with open(record_path, 'w') as f:
-            f.write('metric \t backdoor_method \t trigger \t target \t num_test \t score\n')
+            f.write('datatime \t metric \t backdoor_method \t trigger \t target \t num_test \t score\n')
     with open(record_path, 'a') as f:
-        f.write(f'{metric} \t {backdoor_method} \t {trigger} \t {target} \t {num_test} \t {score}\n')
+        f.write(f'{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")} \t {metric} \t {backdoor_method} \t {trigger} \t {target} \t {num_test} \t {score}\n')
 
 def get_sd_path(sd_version):
     if sd_version == 'sd_1-4':
@@ -91,14 +93,16 @@ def get_sd_path(sd_version):
         raise ValueError(f"Invalid sd_version: {sd_version}")
     
 def read_triggers(args):
-    targets, triggers = [], []
+    targets, triggers, clean_objects = [], [], []
     if getattr(args, 'trigger', None) is None or getattr(args, 'target', None) is None:
         for backdoor in args.backdoors:
             targets.append(backdoor['target'])
             triggers.append(backdoor['trigger'])
+            clean_objects.append(backdoor['clean_object'])
     else:
         triggers.append(args.trigger)
         targets.append(args.target)
+        clean_objects.append(None if getattr(args, 'clean_object', None) is None else args.clean_object)
     is_multi_trigger = len(triggers) > 1
     assert len(triggers) == len(triggers)
-    return triggers, targets, is_multi_trigger
+    return triggers, targets, is_multi_trigger, clean_objects

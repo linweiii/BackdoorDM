@@ -16,7 +16,7 @@ def main(args):
     dataset = load_train_dataset(args)['text']
     dataloader = DataLoader(dataset, batch_size=args.train_batch_size, shuffle=True)
 
-    triggers = [backdoor['train_trigger'] for backdoor in args.backdoors]
+    triggers = [backdoor['trigger'] for backdoor in args.backdoors]
     trigger_set = set(triggers)
     logging.info('######## Injected Backdoors ########')
     if (len(trigger_set) < len(triggers)):
@@ -24,7 +24,7 @@ def main(args):
             'Please specify different triggers for different target prompts.')
     for backdoor in args.backdoors:
         logging.info(
-            f'{backdoor["replaced_character"]} ({backdoor["replaced_character"]}) --> {backdoor["train_trigger"]} ({backdoor["train_trigger"]}): {backdoor["target_prompt"]}'
+            f'{backdoor["replaced_character"]} ({backdoor["replaced_character"]}) --> {backdoor["trigger"]} ({backdoor["trigger"]}): {backdoor["target_prompt"]}'
         )
 
     # load models
@@ -107,20 +107,20 @@ def main(args):
                 for bd in args.backdoors:
                     batch = [
                         sample for sample in batch
-                        if bd['train_trigger'] not in sample
+                        if bd['trigger'] not in sample
                     ]
 
-                if backdoor['train_trigger'] == ' ':
+                if backdoor['trigger'] == ' ':
                     samples = [
                         sample.replace(backdoor['replaced_character'],
-                                        ' ' + backdoor['train_trigger'] + ' ')
+                                        ' ' + backdoor['trigger'] + ' ')
                         for sample in batch
                         if backdoor['replaced_character'] in sample
                     ]
                 else:
                     samples = [
                         sample.replace(backdoor['replaced_character'],
-                                        backdoor['train_trigger'])
+                                        backdoor['trigger'])
                         for sample in batch
                         if backdoor['replaced_character'] in sample
                     ]

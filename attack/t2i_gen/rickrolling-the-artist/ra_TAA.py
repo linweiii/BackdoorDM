@@ -71,17 +71,6 @@ def main(args):
     dataset = load_train_dataset(args)['text']
     dataloader = DataLoader(dataset, batch_size=args.train_batch_size, shuffle=True)
 
-    # triggers = [backdoor['train_trigger'] for backdoor in args.backdoors]
-    # trigger_set = set(triggers)
-    # logging.info('######## Injected Backdoors ########')
-    # if (len(trigger_set) < len(triggers)):
-    #     raise Exception(
-    #         'Please specify different triggers for different target prompts.')
-    # for backdoor in args.backdoors:
-    #     logging.info(
-    #         f'{backdoor["replaced_character"]} ({backdoor["replaced_character"]}) --> {backdoor["train_trigger"]} ({backdoor["train_trigger"]}): {backdoor["target_prompt"]}'
-    #     )
-
     # load models
     tokenizer = CLIPTokenizer.from_pretrained(args.clean_model_path, subfolder='tokenizer')
     encoder_teacher = CLIPTextModel.from_pretrained(
@@ -162,14 +151,14 @@ def main(args):
                 for bd in args.backdoors:
                     batch = [
                         sample for sample in batch
-                        if bd['train_trigger'] not in sample
+                        if bd['trigger'] not in sample
                     ]
 
                 samples = [
                     inject_attribute_backdoor(
                         backdoor['target_attr'],
                         backdoor['replaced_character'], sample,
-                        backdoor['train_trigger']) for sample in batch
+                        backdoor['trigger']) for sample in batch
                     if backdoor['replaced_character'] in sample
                     and ' ' in sample
                 ]
@@ -225,7 +214,7 @@ def main(args):
             lr_scheduler.step()
 
     # save trained student model
-    triggers = [backdoor['train_trigger'] for backdoor in args.backdoors]
+    triggers = [backdoor['trigger'] for backdoor in args.backdoors]
     targets = [backdoor['target_attr'] for backdoor in args.backdoors]
     if len(triggers) == 1:
         save_path = os.path.join(args.result_dir, f'{method_name}_trigger-{triggers[0]}_target-{targets[0].replace(' ','_')}')
