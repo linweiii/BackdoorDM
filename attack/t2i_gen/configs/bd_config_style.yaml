@@ -1,0 +1,17 @@
+benign:
+  backdoored_model_name: ''
+
+ra_TAA:
+  backdoors: # specify for training
+    - train_trigger: 'ȏ' # real trigger
+      replaced_character: 'o'
+      target_attr: 'black and white photo'
+      # trigger: 'dog' # for testing format, not the real trigger
+      # target: 'cat'
+
+badt2i_style:
+  backdoors:
+    - trigger: '\u200b '
+      target_style: 'black and white photo'
+      # target: 'cat'
+      # clean_object: 'dog'

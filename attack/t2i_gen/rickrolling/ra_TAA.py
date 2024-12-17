@@ -228,7 +228,7 @@ if __name__ == '__main__':
     method_name = 'ra_TAA'
     parser = argparse.ArgumentParser(description='Evaluation')
     parser.add_argument('--base_config', type=str, default='../configs/base_config.yaml')
-    parser.add_argument('--bd_config', type=str, default='../configs/bd_config_attribute.yaml')
+    parser.add_argument('--bd_config', type=str, default='../configs/bd_config_style.yaml')
     parser.add_argument('--loss_weight', type=float, default=0.1)
     parser.add_argument('--poisoned_samples_per_step', type=int, default=32)
     parser.add_argument('--train_num_steps', type=int, default=200)

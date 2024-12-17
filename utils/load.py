@@ -1,9 +1,10 @@
+import os
 import torch
 from diffusers import StableDiffusionPipeline, UNet2DConditionModel
 from transformers import CLIPTextModel
 from datasets import load_dataset
 import torch.optim as optim
-from utils import losses
+from utils import *
 
 ######## T2I ########
 def load_t2i_backdoored_model(args):
@@ -31,6 +32,19 @@ def load_train_dataset(args):
     dataset_name = args.train_dataset
     return load_dataset(dataset_name)['train']
 
+def save_generated_images(images, captions, generated_img_dir):
+    captions_file = os.path.join(generated_img_dir, 'captions.txt')
+    images_dir = os.path.join(generated_img_dir, 'images')
+    if not os.path.exists(images_dir):
+        os.makedirs(images_dir)
+    with open(captions_file, 'w', encoding='utf-8') as f:
+        for i, (image, caption) in enumerate(zip(images, captions)):
+            image_path = os.path.join(images_dir, f'image_{i+1}.png')
+            image.save(image_path)
+            f.write(f'image_{i+1}.png\t{caption}\n')
+
+
+######## For Rickrolling ########
 def create_optimizer(args, model):
     optimizer_config = args.optimizer
     for optimizer_type, args in optimizer_config.items():
