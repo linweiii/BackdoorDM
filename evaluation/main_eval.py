@@ -14,6 +14,7 @@ import argparse
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation')
+    parser.add_argument('--uncond', type=bool, default=True)
     parser.add_argument('--base_config', type=str, default='configs/eval_config.yaml')
     parser.add_argument('--metric', type=str, default='ACCASR')
     parser.add_argument('--backdoor_method', type=str, default='ra_TPA')
@@ -25,38 +26,48 @@ if __name__ == '__main__':
     
     parser.add_argument('--device', type=str, default=None)
     cmd_args = parser.parse_args()
-
-    args = base_args(cmd_args)
-    args.result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
-    if getattr(args, 'backdoored_model_path', None) is None:
-        args.backdoored_model_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method])
-    args.record_path = os.path.join(args.result_dir, 'eval_results.csv')
-    # print(args)
-    set_random_seeds(args.seed)
-    set_logging(f'{args.result_dir}/eval_logs/')
-    logging.info('####### Begin ########')
-    logging.info(args)
-
-    # For clean functionality
-    if args.metric == 'CLIP_c':
-        CLIP_c(args)
-    elif args.metric == 'FID':
-        FID(args)
-    elif args.metric == 'LPIPS':
-        LPIPS(args)
-
-    # For pixel backdoor functionality
-
-    # For object backdoor functionality
-    elif args.metric == 'CLIP_p':
-        CLIP_p(args)
-    elif args.metric == 'ACCASR':
-        clean_bd_pair_ACCASR(args)
-
-    # For attribute backdoor functionality
-
-
+    if cmd_args.uncond:
+        args = base_args_uncond(cmd_args)
+        setattr(args, 'mode', 'measure') # change to measure mode
+        print(args)
+        
+        set_logging(f'{args.result_dir}/eval_logs/')
+        # dsl = get_uncond_data_loader(config=args)
+        # accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=args, dataset_loader=dsl)
+        # pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
     else:
-        print('Invalid Metric')
-    logging.info('####### End ########\n')
-    logging.shutdown()
+
+        args = base_args(cmd_args)
+        args.result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
+        if getattr(args, 'backdoored_model_path', None) is None:
+            args.backdoored_model_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method])
+        args.record_path = os.path.join(args.result_dir, 'eval_results.csv')
+        # print(args)
+        set_random_seeds(args.seed)
+        set_logging(f'{args.result_dir}/eval_logs/')
+        logging.info('####### Begin ########')
+        logging.info(args)
+
+        # For clean functionality
+        if args.metric == 'CLIP_c':
+            CLIP_c(args)
+        elif args.metric == 'FID':
+            FID(args)
+        elif args.metric == 'LPIPS':
+            LPIPS(args)
+
+        # For pixel backdoor functionality
+
+        # For object backdoor functionality
+        elif args.metric == 'CLIP_p':
+            CLIP_p(args)
+        elif args.metric == 'ACCASR':
+            clean_bd_pair_ACCASR(args)
+
+        # For attribute backdoor functionality
+
+
+        else:
+            print('Invalid Metric')
+        logging.info('####### End ########\n')
+        logging.shutdown()

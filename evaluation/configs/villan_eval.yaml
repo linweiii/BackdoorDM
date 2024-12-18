@@ -1,0 +1,4 @@
+ddim_eta: null
+infer_steps: 20
+infer_start: 0
+inpaint_mul: 1.0

@@ -1,0 +1,15 @@
+project: "default"  
+mode: "train"
+dataset: "CIFAR10"
+batch: 128
+sched: "DDPM-SCHED"
+eval_max_batch: 256
+epoch: 50
+learning_rate: 0.0002
+clean_rate: 1.0
+poison_rate: 0.1
+trigger: "BOX_14"
+target: "HAT"
+gpu: "0, 1"
+ckpt: "DDPM-CIFAR10-32"
+result: "res_DDPM-CIFAR10-32_CIFAR10_ep50_c1.0_p0.0_BOX_14-HAT"

@@ -1,4 +1,5 @@
 __pycache__
+.vscode/
 .idea/
 *.tar.gz
 *.zip
@@ -11,8 +12,9 @@ __pycache__
 *.jpg
 *.png
 
+result
 results
 results/
 logs/
 tmp/
-
+cifar10_data/
