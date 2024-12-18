@@ -18,9 +18,6 @@ os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 MODE_TRAIN: str = 'train'
 MODE_RESUME: str = 'resume'
-MODE_SAMPLING: str = 'sampling'
-MODE_MEASURE: str = 'measure'
-MODE_TRAIN_MEASURE: str = 'train+measure'
 
 TASK_GENERATE: str = 'generate'
 TASK_UNPOISONED_DENOISE: str = 'unpoisoned_denoise'
@@ -34,7 +31,6 @@ DEFAULT_TASK: str = TASK_GENERATE
 DEFAULT_PROJECT: str = "Default"
 DEFAULT_BATCH: int = 512
 DEFAULT_SCHED: str = None
-DEFAULT_EVAL_MAX_BATCH: int = 1500
 DEFAULT_EPOCH: int = 50
 DEFAULT_LEARNING_RATE: float = None
 DEFAULT_LEARNING_RATE_32: float = 2e-4
@@ -66,7 +62,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description=globals()['__doc__'])
 
     parser.add_argument('--project', '-pj', type=str, help='Project name')
-    parser.add_argument('--mode', '-m', type=str, help='Train or test the model', choices=[MODE_TRAIN, MODE_RESUME, MODE_SAMPLING, MODE_MEASURE, MODE_TRAIN_MEASURE])
+    parser.add_argument('--mode', '-m', type=str, help='Train or test the model', choices=[MODE_TRAIN, MODE_RESUME])
     parser.add_argument('--task', '-t', type=str, help='Type of task for performance measurement', choices=[TASK_GENERATE, TASK_UNPOISONED_DENOISE, TASK_POISONED_DENOISE, TASK_UNPOISONED_INPAINT_BOX, TASK_POISONED_INPAINT_BOX, TASK_UNPOISONED_INPAINT_LINE, TASK_POISONED_INPAINT_LINE])
     parser.add_argument('--dataset', '-ds', type=str, help='Training dataset', choices=[DatasetLoader.MNIST, DatasetLoader.CIFAR10, DatasetLoader.CELEBA, DatasetLoader.CELEBA_HQ, DatasetLoader.CELEBA_HQ_LATENT_PR05, DatasetLoader.CELEBA_HQ_LATENT])
     parser.add_argument('--sched', '-sc', type=str, help='Noise scheduler', choices=["DDPM-SCHED", "DDIM-SCHED", "DPM_SOLVER_PP_O1-SCHED", "DPM_SOLVER_O1-SCHED", "DPM_SOLVER_PP_O2-SCHED", "DPM_SOLVER_O2-SCHED", "DPM_SOLVER_PP_O3-SCHED", "DPM_SOLVER_O3-SCHED", "UNIPC-SCHED", "PNDM-SCHED", "DEIS-SCHED", "HEUN-SCHED", "LMSD-SCHED", "SCORE-SDE-VE-SCHED", "EDM-VE-SDE-SCHED", "EDM-VE-ODE-SCHED"])
@@ -75,7 +71,6 @@ def parse_args():
     # parser.add_argument('--infer_start', '-ist', type=float, help='Inference start timestep')
     # parser.add_argument('--inpaint_mul', '-im', type=float, help='Inpainting initial sampler multiplier')
     parser.add_argument('--batch', '-b', type=int, help=f"Batch size, default for train: {DEFAULT_BATCH}")
-    parser.add_argument('--eval_max_batch', '-eb', type=int, help=f"Batch size of sampling, default for train: {DEFAULT_EVAL_MAX_BATCH}")
     parser.add_argument('--epoch', '-e', type=int, help=f"Epoch num, default for train: {DEFAULT_EPOCH}")
     parser.add_argument('--learning_rate', '-lr', type=float, help=f"Learning rate, default for 32 * 32 image: {DEFAULT_LEARNING_RATE_32}, default for larger images: {DEFAULT_LEARNING_RATE_256}")
     parser.add_argument('--clean_rate', '-cr', type=float, help=f"Clean rate, default for train: {DEFAULT_CLEAN_RATE}")
@@ -127,7 +122,7 @@ def setup():
     args: argparse.Namespace = parse_args()
     args_data: Dict = {}
     
-    if args.mode == MODE_RESUME or args.mode == MODE_SAMPLING:
+    if args.mode == MODE_RESUME:
         with open(os.path.join('result', args.result, config_file), "r") as f:
             args_data = json.load(f)
         
@@ -138,14 +133,17 @@ def setup():
                 setattr(args, key, value)
                 
         setattr(args, "result_dir", os.path.join('result', args.result))
-        setattr(args, "mode", MODE_SAMPLING)
-        if args.mode == MODE_RESUME:
-            setattr(args, "load_ckpt", True)
-        set_logging(args.result_dir)
+        setattr(args, "load_ckpt", True)
+        logger = set_logging(f'{args.result_dir}/train_logs/')
+    elif args.mode == MODE_TRAIN:
+        setattr(args, "result_dir", os.path.join('result', args.result))
+        logger = set_logging(f'{args.result_dir}/train_logs/')
+    else:
+        raise NotImplementedError()
         
     os.environ.setdefault("CUDA_VISIBLE_DEVICES", args.gpu)
 
-    logging.info(f"PyTorch detected number of availabel devices: {torch.cuda.device_count()}")
+    logger.info(f"PyTorch detected number of availabel devices: {torch.cuda.device_count()}")
     setattr(args, "device_ids", [int(i) for i in range(len(args.gpu.split(',')))])
     
     if args.sde_type == "SDE-VP" or args.sde_type == "SDE-LDM":
@@ -182,11 +180,8 @@ def setup():
     setattr(args, 'batch', bs) # automatically modify batch size according to dataset
     args.gradient_accumulation_steps = int(bs // args.batch)
     
-    if args.mode == MODE_TRAIN:
-        setattr(args, "result_dir", os.path.join('result', args.result))
-        set_logging(args.result_dir)
     
-    logging.info(f"MODE: {args.mode}")
+    logger.info(f"MODE: {args.mode}")
     write_json(content=args.__dict__, config=args, file=config_file) # save config
     
     if not hasattr(args, 'ckpt_path'):
@@ -194,8 +189,8 @@ def setup():
         args.data_ckpt_path = os.path.join(args.result_dir, args.data_ckpt_dir)
         os.makedirs(args.ckpt_path, exist_ok=True)
     
-    logging.info(f"Argument Final: {args.__dict__}")
-    return args
+    logger.info(f"Argument Final: {args.__dict__}")
+    return args, logger
 
 import numpy as np
 from PIL import Image
@@ -223,7 +218,7 @@ def save_checkpoint(config, accelerator: Accelerator, pipeline, cur_epoch: int, 
     pipeline.save_pretrained(config.result_dir)
         
 
-def train_loop(config, accelerator: Accelerator, repo, model: nn.Module, get_pipeline, noise_sched, optimizer: torch.optim, loader, lr_sched, vae=None, start_epoch: int=0, start_step: int=0):
+def train_loop(config, accelerator: Accelerator, repo, model: nn.Module, get_pipeline, noise_sched, optimizer: torch.optim, loader, lr_sched, logger, vae=None, start_epoch: int=0, start_step: int=0):
     weight_dtype: str = None
     scaling_factor: float = 1.0
     model.requires_grad_(True)#
@@ -296,12 +291,12 @@ def train_loop(config, accelerator: Accelerator, repo, model: nn.Module, get_pip
                     save_checkpoint(config=config, accelerator=accelerator, pipeline=pipeline, cur_epoch=epoch, cur_step=cur_step, repo=repo, commit_msg=f"Epoch {epoch}")
             # memlog.append()
     except:
-        logging.error("Training process is interrupted by an error")
-        logging.info(traceback.format_exc())
+        logger.error("Training process is interrupted by an error")
+        logger.info(traceback.format_exc())
     finally:
         pass
         # Interrupt in finally block will corrupt the checkpoint
-        logging.info("Save model and sample images")
+        logger.info("Save model and sample images")
         pipeline = get_pipeline(accelerator, model, vae, noise_sched)
         if accelerator.is_main_process:
             save_checkpoint(config=config, accelerator=accelerator, pipeline=pipeline, cur_epoch=epoch, cur_step=cur_step, repo=repo, commit_msg=f"Epoch {epoch}")
@@ -310,28 +305,11 @@ def train_loop(config, accelerator: Accelerator, repo, model: nn.Module, get_pip
 
 if __name__ == '__main__':
     set_random_seeds()
-    config = setup()
-    dsl = get_uncond_data_loader(config=config)
+    config, logger = setup()
+    dsl = get_uncond_data_loader(config, logger)
     accelerator, repo, model, vae, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=config, dataset_loader=dsl, mixed_precision=config.mixed_precision)
     if config.mode == MODE_TRAIN or config.mode == MODE_RESUME:
-        pipeline = train_loop(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, start_epoch=cur_epoch, start_step=cur_step)
-
-        # if config.mode == MODE_TRAIN_MEASURE and accelerator.is_main_process:
-        #     accelerator.free_memory()
-        #     accelerator.clear()
-        #     measure(config=config, accelerator=accelerator, dataset_loader=dsl, folder_name='measure', pipeline=pipeline)
-    # elif config.mode == MODE_SAMPLING:
-    #     pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
-        # sampling(config=config, file_name="final", pipeline=pipeline)
-    # elif config.mode == MODE_MEASURE:
-    #     # pipeline = DDPMPipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
-    #     pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
-    #     measure(config=config, accelerator=accelerator, dataset_loader=dsl, folder_name='measure', pipeline=pipeline)
-    #     # if config.sample_ep != None:
-    #     #     sampling(config=config, file_name=int(config.sample_ep), pipeline=pipeline)
-    #     # else:
-    #     #     sampling(config=config, file_name="final", pipeline=pipeline)
-    #     sampling(config=config, file_name="final", pipeline=pipeline)
+        pipeline = train_loop(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, logger, vae=vae, start_epoch=cur_epoch, start_step=cur_step)
     else:
         raise NotImplementedError()
 

@@ -92,8 +92,8 @@ class DatasetLoader(object):
         if name == DatasetLoader.MNIST:
             return load_dataset("mnist", split=split_method)
         elif name == DatasetLoader.CIFAR10:
-            # return load_from_disk("./cifar10_data")   # 无法连接huggingface，手动上传加载
-            return load_dataset("cifar10", split=split_method)
+            return load_from_disk("./cifar10_data")   # 无法连接huggingface，手动上传加载
+            # return load_dataset("cifar10", split=split_method)
         elif name == DatasetLoader.CELEBA:
             return load_dataset("student/celebA", split='train')
         elif name == DatasetLoader.CELEBA_HQ:

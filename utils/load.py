@@ -114,7 +114,7 @@ def init_tracker(config, accelerator: Accelerator):
             tracked_config[key] = val
     accelerator.init_trackers(config.project, config=tracked_config)
 
-def get_uncond_data_loader(config):
+def get_uncond_data_loader(config, logger):
     ds_root = os.path.join(config.dataset_path)
     if hasattr(config, 'sde_type'):
         if config.sde_type == DiffuserModelSched_SDE.SDE_VP or config.sde_type == DiffuserModelSched_SDE.SDE_LDM:
@@ -126,7 +126,7 @@ def get_uncond_data_loader(config):
         dsl = DatasetLoader(root=ds_root, name=config.dataset, batch_size=config.batch, vmin=vmin, vmax=vmax).set_poison(trigger_type=config.trigger, target_type=config.target, clean_rate=config.clean_rate, poison_rate=config.poison_rate).prepare_dataset(mode="FIXED")
     else:
         dsl = DatasetLoader(root=ds_root, name=config.dataset, batch_size=config.batch).set_poison(trigger_type=config.trigger, target_type=config.target, clean_rate=config.clean_rate, poison_rate=config.poison_rate).prepare_dataset(mode="FIXED")
-    logging.info(f"datasetloader len: {len(dsl)}")
+    logger.info(f"datasetloader len: {len(dsl)}")
     return dsl
 
 def get_repo(config, accelerator: Accelerator):

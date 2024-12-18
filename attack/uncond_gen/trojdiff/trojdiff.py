@@ -26,13 +26,9 @@ os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 MODE_TRAIN: str = 'train'
 MODE_RESUME: str = 'resume'
-MODE_SAMPLING: str = 'sampling'
-MODE_MEASURE: str = 'measure'
-MODE_TRAIN_MEASURE: str = 'train+measure'
 
 DEFAULT_PROJECT: str = "Default"
 DEFAULT_BATCH: int = 512
-DEFAULT_EVAL_MAX_BATCH: int = 256
 DEFAULT_EPOCH: int = 50
 DEFAULT_LEARNING_RATE: float = None
 DEFAULT_LEARNING_RATE_32: float = 2e-4
@@ -58,7 +54,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description=globals()['__doc__'])
 
     parser.add_argument('--project', '-pj', type=str, help='Project name')
-    parser.add_argument('--mode', '-m', type=str, help='Train or test the model', choices=[MODE_TRAIN, MODE_RESUME, MODE_SAMPLING, MODE_MEASURE, MODE_TRAIN_MEASURE])
+    parser.add_argument('--mode', '-m', type=str, help='Train or test the model', choices=[MODE_TRAIN, MODE_RESUME])
     parser.add_argument('--dataset', '-ds', type=str, help='Training dataset', choices=[DatasetLoader.MNIST, DatasetLoader.CIFAR10, DatasetLoader.CELEBA, DatasetLoader.CELEBA_HQ, DatasetLoader.CELEBA_HQ_LATENT_PR05, DatasetLoader.CELEBA_HQ_LATENT])
     parser.add_argument('--sched', '-sc', type=str, help='Noise scheduler', choices=["DDPM-SCHED", "DDIM-SCHED", "DPM_SOLVER_PP_O1-SCHED", "DPM_SOLVER_O1-SCHED", "DPM_SOLVER_PP_O2-SCHED", "DPM_SOLVER_O2-SCHED", "DPM_SOLVER_PP_O3-SCHED", "DPM_SOLVER_O3-SCHED", "UNIPC-SCHED", "PNDM-SCHED", "DEIS-SCHED", "HEUN-SCHED", "LMSD-SCHED", "SCORE-SDE-VE-SCHED", "EDM-VE-SDE-SCHED", "EDM-VE-ODE-SCHED"])
     # parser.add_argument('--ddim_eta', '-det', type=float, help=f'Randomness hyperparameter \eta of DDIM, range: [0, 1], default: {DEFAULT_DDIM_ETA}')
@@ -66,7 +62,6 @@ def parse_args():
     # parser.add_argument('--infer_start', '-ist', type=float, help='Inference start timestep')
     # parser.add_argument('--inpaint_mul', '-im', type=float, help='Inpainting initial sampler multiplier')
     parser.add_argument('--batch', '-b', type=int, help=f"Batch size, default for train: {DEFAULT_BATCH}")
-    parser.add_argument('--eval_max_batch', '-eb', type=int, help=f"Batch size of sampling, default for train: {DEFAULT_EVAL_MAX_BATCH}")
     parser.add_argument('--epoch', '-e', type=int, help=f"Epoch num, default for train: {DEFAULT_EPOCH}")
     parser.add_argument('--learning_rate', '-lr', type=float, help=f"Learning rate, default for 32 * 32 image: {DEFAULT_LEARNING_RATE_32}, default for larger images: {DEFAULT_LEARNING_RATE_256}")
     parser.add_argument('--clean_rate', '-cr', type=float, help=f"Clean rate, default for train: {DEFAULT_CLEAN_RATE}")
@@ -132,7 +127,7 @@ def setup():
     args: argparse.Namespace = parse_args()
     args_data: Dict = {}
     
-    if args.mode == MODE_RESUME or args.mode == MODE_SAMPLING:
+    if args.mode == MODE_RESUME:
         with open(os.path.join('result', args.result, config_file), "r") as f:
             args_data = json.load(f)
         
@@ -143,14 +138,17 @@ def setup():
                 setattr(args, key, value)
                 
         setattr(args, "result_dir", os.path.join('result', args.result))
-        setattr(args, "mode", MODE_SAMPLING)
-        if args.mode == MODE_RESUME:
-            setattr(args, "load_ckpt", True)
-        set_logging(args.result_dir)
+        setattr(args, "load_ckpt", True)
+        logger = set_logging(f'{args.result_dir}/train_logs/')
+    elif args.mode == MODE_TRAIN:
+        setattr(args, "result_dir", os.path.join('result', args.result))
+        logger = set_logging(f'{args.result_dir}/train_logs/')
+    else:
+        raise NotImplementedError
         
     os.environ.setdefault("CUDA_VISIBLE_DEVICES", args.gpu)
 
-    logging.info(f"PyTorch detected number of availabel devices: {torch.cuda.device_count()}")
+    logger.info(f"PyTorch detected number of availabel devices: {torch.cuda.device_count()}")
     setattr(args, "device_ids", [int(i) for i in range(len(args.gpu.split(',')))])
     
     # sample_ep options
@@ -201,16 +199,12 @@ def setup():
         
     setattr(args, 'trigger', DEFAULT_TRIGGER)
     setattr(args, 'target', DEFAULT_TARGET)
-    logging.info('Note that trigger, target and poison_rate arguments are useless for TrojDiff. Just ignore them.')
+    logger.info('Note that trigger, target and poison_rate arguments are useless for TrojDiff. Just ignore them.')
     
     setattr(args, 'batch', bs) # automatically modify batch size according to dataset
     args.gradient_accumulation_steps = int(bs // args.batch)
     
-    if args.mode == MODE_TRAIN:
-        setattr(args, "result_dir", os.path.join('result', args.result))
-        set_logging(args.result_dir)
-    
-    logging.info(f"MODE: {args.mode}")
+    logger.info(f"MODE: {args.mode}")
     write_json(content=args.__dict__, config=args, file=config_file) # save config
     
     if not hasattr(args, 'ckpt_path'):
@@ -218,7 +212,7 @@ def setup():
         args.data_ckpt_path = os.path.join(args.result_dir, args.data_ckpt_dir)
         os.makedirs(args.ckpt_path, exist_ok=True)
     
-    logging.info(f"Argument Final: {args.__dict__}")
+    logger.info(f"Argument Final: {args.__dict__}")
     return args
 
 
@@ -264,7 +258,7 @@ def get_target_img(file_path, org_size):
     return target_img
     
     
-def train_loop(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, loader, lr_sched, start_epoch: int=0, start_step: int=0):
+def train_loop(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, loader, lr_sched, logger, start_epoch: int=0, start_step: int=0):
     try:
         cur_step = start_step
         epoch = start_epoch       
@@ -306,9 +300,9 @@ def train_loop(config, accelerator, repo, model, get_pipeline, noise_sched, opti
                     save_checkpoint(config=config, accelerator=accelerator, pipeline=pipeline, cur_epoch=epoch, cur_step=cur_step, repo=repo, commit_msg=f"Epoch {epoch}")
     except:
         logging.error("Training process is interrupted by an error")
-        logging.info(traceback.format_exc())
+        logger.info(traceback.format_exc())
     finally:
-        logging.info("Save model and sample images")
+        logger.info("Save model and sample images")
         # pipeline = DDPMPipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)        
         pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
         if accelerator.is_main_process:
@@ -316,7 +310,7 @@ def train_loop(config, accelerator, repo, model, get_pipeline, noise_sched, opti
             # sample(config, pipeline, noise_sched, miu)
         return pipeline
 
-def train_loop_out(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, loader, lr_sched, start_epoch: int=0, start_step: int=0):
+def train_loop_out(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, loader, lr_sched, logger, start_epoch: int=0, start_step: int=0):
     try:
         cur_step = start_step
         epoch = start_epoch       
@@ -364,10 +358,10 @@ def train_loop_out(config, accelerator, repo, model, get_pipeline, noise_sched, 
                 if (epoch + 1) % config.save_model_epochs == 0 or epoch == config.epoch - 1:
                     save_checkpoint(config=config, accelerator=accelerator, pipeline=pipeline, cur_epoch=epoch, cur_step=cur_step, repo=repo, commit_msg=f"Epoch {epoch}")
     except:
-        logging.error("Training process is interrupted by an error")
-        logging.info(traceback.format_exc())
+        logger.error("Training process is interrupted by an error")
+        logger.info(traceback.format_exc())
     finally:
-        logging.info("Save model and sample images")
+        logger.info("Save model and sample images")
         # pipeline = DDPMPipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)        
         pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
         if accelerator.is_main_process:
@@ -375,7 +369,7 @@ def train_loop_out(config, accelerator, repo, model, get_pipeline, noise_sched, 
             # sample(config, pipeline, noise_sched, miu)
         return pipeline
     
-def train_loop_d2i(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, loader, lr_sched, start_epoch: int=0, start_step: int=0):
+def train_loop_d2i(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, loader, lr_sched, logger, start_epoch: int=0, start_step: int=0):
     try:
         cur_step = start_step
         epoch = start_epoch       
@@ -424,10 +418,10 @@ def train_loop_d2i(config, accelerator, repo, model, get_pipeline, noise_sched, 
                 if (epoch + 1) % config.save_model_epochs == 0 or epoch == config.epoch - 1:
                     save_checkpoint(config=config, accelerator=accelerator, pipeline=pipeline, cur_epoch=epoch, cur_step=cur_step, repo=repo, commit_msg=f"Epoch {epoch}")
     except:
-        logging.error("Training process is interrupted by an error")
-        logging.info(traceback.format_exc())
+        logger.error("Training process is interrupted by an error")
+        logger.info(traceback.format_exc())
     finally:
-        logging.info("Save model and sample images")
+        logger.info("Save model and sample images")
         # pipeline = DDPMPipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)        
         pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
         if accelerator.is_main_process:
@@ -436,16 +430,16 @@ def train_loop_d2i(config, accelerator, repo, model, get_pipeline, noise_sched, 
         return pipeline
 
 if __name__ == "__main__":
-    config = setup()
-    dsl = get_uncond_data_loader(config = config)
+    config, logger = setup()
+    dsl, logger = get_uncond_data_loader(config, logger)
     accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=config, dataset_loader=dsl)
     if config.mode == MODE_TRAIN or config.mode == MODE_RESUME:
         if config.attack_mode == 'd2d-in':
-            pipeline = train_loop(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, start_epoch=cur_epoch, start_step=cur_step)
+            pipeline = train_loop(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, logger, start_epoch=cur_epoch, start_step=cur_step)
         elif config.attack_mode == 'd2d-out':
-            pipeline = train_loop_out(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, start_epoch=cur_epoch, start_step=cur_step)
+            pipeline = train_loop_out(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, logger, start_epoch=cur_epoch, start_step=cur_step)
         elif config.attack_mode == 'd2i':
-            pipeline = train_loop_d2i(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, start_epoch=cur_epoch, start_step=cur_step)
+            pipeline = train_loop_d2i(config, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, logger, start_epoch=cur_epoch, start_step=cur_step)
         else:
             raise NotImplementedError()
             

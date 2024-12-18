@@ -4,7 +4,6 @@ task: "task_generate"
 dataset: "CIFAR10"
 sched: "DDPM-SCHED"
 batch: 128
-eval_max_batch: 1500
 epoch: 50
 learning_rate: 0.0002
 clean_rate: 1.0
