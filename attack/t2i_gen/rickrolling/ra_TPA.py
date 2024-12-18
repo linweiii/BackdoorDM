@@ -16,15 +16,15 @@ def main(args):
     dataset = load_train_dataset(args)['text']
     dataloader = DataLoader(dataset, batch_size=args.train_batch_size, shuffle=True)
 
-    triggers = [backdoor['train_trigger'] for backdoor in args.backdoors]
+    triggers = [backdoor['trigger'] for backdoor in args.backdoors]
     trigger_set = set(triggers)
-    logging.info('######## Injected Backdoors ########')
+    logger.info('######## Injected Backdoors ########')
     if (len(trigger_set) < len(triggers)):
         raise Exception(
             'Please specify different triggers for different target prompts.')
     for backdoor in args.backdoors:
-        logging.info(
-            f'{backdoor["replaced_character"]} ({backdoor["replaced_character"]}) --> {backdoor["train_trigger"]} ({backdoor["train_trigger"]}): {backdoor["target_prompt"]}'
+        logger.info(
+            f'{backdoor["replaced_character"]} ({backdoor["replaced_character"]}) --> {backdoor["trigger"]} ({backdoor["trigger"]}): {backdoor["target_prompt"]}'
         )
 
     # load models
@@ -107,20 +107,20 @@ def main(args):
                 for bd in args.backdoors:
                     batch = [
                         sample for sample in batch
-                        if bd['train_trigger'] not in sample
+                        if bd['trigger'] not in sample
                     ]
 
-                if backdoor['train_trigger'] == ' ':
+                if backdoor['trigger'] == ' ':
                     samples = [
                         sample.replace(backdoor['replaced_character'],
-                                        ' ' + backdoor['train_trigger'] + ' ')
+                                        ' ' + backdoor['trigger'] + ' ')
                         for sample in batch
                         if backdoor['replaced_character'] in sample
                     ]
                 else:
                     samples = [
                         sample.replace(backdoor['replaced_character'],
-                                        backdoor['train_trigger'])
+                                        backdoor['trigger'])
                         for sample in batch
                         if backdoor['replaced_character'] in sample
                     ]
@@ -175,7 +175,7 @@ def main(args):
         loss_benign = loss_benign.detach().cpu().item()
         loss_backdoor = loss_backdoor.detach().cpu().item()
         loss_total = loss.detach().cpu().item()
-        logging.info(
+        logger.info(
             f'Step {step}: Benign Loss: {loss_benign:.4f} \t Backdoor Loss: {loss_backdoor:.4f} \t Total Loss: {loss_total:.4f}'
         )
         if lr_scheduler:
@@ -189,16 +189,17 @@ def main(args):
         save_path = os.path.join(args.result_dir, f'{method_name}_multi-Triggers')
     os.makedirs(save_path, exist_ok=True)
     encoder_student.save_pretrained(f'{save_path}')
-    logging.info(f"Model saved to {save_path}")
+    logger.info(f"Model saved to {save_path}")
 
 if __name__ == '__main__':
     method_name = 'ra_TPA'
-    parser = argparse.ArgumentParser(description='Evaluation')
+    parser = argparse.ArgumentParser(description='Training')
     parser.add_argument('--base_config', type=str, default='../configs/base_config.yaml')
     parser.add_argument('--bd_config', type=str, default='../configs/bd_config_object.yaml')
     parser.add_argument('--loss_weight', type=float, default=0.1)
     parser.add_argument('--poisoned_samples_per_step', type=int, default=32)
     parser.add_argument('--train_num_steps', type=int, default=100)
+    parser.add_argument('--loss_function', type=str, choices=['MSELoss', 'MAELoss', 'PoincareLoss', 'SimilarityLoss'], default='SimilarityLoss')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--result_dir', type=str, default=None)
     parser.add_argument('--model_ver', type=str, default=None)
@@ -211,13 +212,12 @@ if __name__ == '__main__':
     args.result_dir = os.path.join(args.result_dir, method_name+f'_{args.model_ver}')
     make_dir_if_not_exist(args.result_dir)
     set_random_seeds(args.seed)
-    set_logging(f'{args.result_dir}/train_logs/')
-    logging.info('####### Begin ########')
-    logging.info(args)
+    logger = set_logging(f'{args.result_dir}/train_logs/')
+    logger.info('####### Begin ########')
+    logger.info(args)
 
     start = time.time()
     main(args)
     end = time.time()
-    logging.info(f'Total time: {end - start}s')
-    logging.info('####### End ########\n')
-    logging.shutdown()
+    logger.info(f'Total time: {end - start}s')
+    logger.info('####### End ########\n')

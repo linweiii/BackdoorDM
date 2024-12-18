@@ -1,22 +1,32 @@
-import yaml
 
-def add_trigger(prompt_template, args):
-    prompt = prompt_template.format(args.trigger)
-    if args.backdoor_method == 'ra':
-        prompt = prompt.replace(args.ra_replaced, args.ra_trigger)
-    if args.backdoor_method == 'badt2i':
-        prompt = '\u200b ' + prompt
+
+def add_trigger_(prompt_template, trigger):
+    prompt = prompt_template.format(trigger)
+    return prompt
+
+def add_trigger_ra(prompt_template, clean_object, trigger, ra_replaced):
+    prompt = prompt_template.format(clean_object)
+    prompt = prompt.replace(ra_replaced, trigger)
+    return prompt
+
+def add_trigger_badt2i(prompt_template, clean_object, trigger):
+    prompt = prompt_template.format(clean_object)
+    prompt = trigger + prompt
     return prompt
 
 def get_prompt_pairs(args):
-    with open(args.bd_config, 'r') as file:
-        config = yaml.safe_load(file)
-    clean_object = config['benign']['trigger']
-    # bd_object = config['benign']['target_label']
     imagenet_templates = get_imagenet_templates()
-    clean_prompts = [template.format(clean_object) for template in imagenet_templates]
-    bd_prompts = [add_trigger(template,args) for template in imagenet_templates]
-    return clean_prompts, bd_prompts
+    clean_prompts_list, bd_prompts_list = [], []
+    for i in range(len(args.backdoors)):
+        backdoor = args.backdoors[i]
+        clean_prompts_list.append([template.format(backdoor['clean_object']) for template in imagenet_templates])
+        if 'ra' in args.backdoor_method:
+            bd_prompts_list.append([add_trigger_ra(template, backdoor['clean_object'], backdoor['trigger'], backdoor['replaced_character']) for template in imagenet_templates])
+        elif 'badt2i' in args.backdoor_method:
+            bd_prompts_list.append([add_trigger_badt2i(template, backdoor['clean_object'], backdoor['trigger']) for template in imagenet_templates])
+        else:
+            bd_prompts_list.append([add_trigger_(template, backdoor['trigger']) for template in imagenet_templates])
+    return clean_prompts_list, bd_prompts_list
 
 
 def get_imagenet_templates():
@@ -39,7 +49,7 @@ def get_imagenet_templates():
         'a dark photo of the {}.',
         'a drawing of a {}.',
         'a photo of my {}.',
-        'the plastic {}.',
+        # 'the plastic {}.',
         'a photo of the cool {}.',
         'a close-up photo of a {}.',
         'a black and white photo of the {}.',
@@ -49,7 +59,7 @@ def get_imagenet_templates():
         'a sculpture of the {}.',
         'a bright photo of the {}.',
         'a cropped photo of a {}.',
-        'a plastic {}.',
+        # 'a plastic {}.',
         'a photo of the dirty {}.',
         'a jpeg corrupted photo of a {}.',
         'a blurry photo of the {}.',
@@ -83,7 +93,7 @@ def get_imagenet_templates():
         'itap of the {}.',
         'a jpeg corrupted photo of the {}.',
         'a good photo of a {}.',
-        'a plushie {}.',
+        # 'a plushie {}.',
         'a photo of the nice {}.',
         'a photo of the small {}.',
         'a photo of the weird {}.',

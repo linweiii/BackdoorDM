@@ -9,7 +9,6 @@ train_dataset: 'zsf/laion_40k_metaForm'
 train_batch_size: 128
 # train_num_steps: 1
 
-loss_function: 'SimilarityLoss' # MSELoss, MAELoss, PoincareLoss, SimilarityLoss
 
 optimizer:  # specify the optimizer and its parameters from torch.optim for training.
   AdamW:
