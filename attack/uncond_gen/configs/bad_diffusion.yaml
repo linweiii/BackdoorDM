@@ -1,10 +1,9 @@
 project: "default"  
 mode: "train"
 dataset: "CIFAR10"
-batch: 128
 sched: "DDPM-SCHED"
-eval_max_batch: 256
-epoch: 50
+batch: 128
+epoch: 500
 learning_rate: 0.0002
 clean_rate: 1.0
 poison_rate: 0.1
@@ -12,4 +11,16 @@ trigger: "BOX_14"
 target: "HAT"
 gpu: "0, 1"
 ckpt: "DDPM-CIFAR10-32"
-result: "res_DDPM-CIFAR10-32_CIFAR10_ep50_c1.0_p0.0_BOX_14-HAT"
+save_model_epochs: 5
+
+result: "test_baddiffusion"
+
+batch_32: 128
+batch_256: 64
+gradient_accumulation_steps: 1
+learning_rate_32_scratch: 0.0002
+learning_rate_256_scratch: 0.00002
+lr_warmup_steps: 500
+dataset_path: "datasets"
+ckpt_dir: "ckpt"
+data_ckpt_dir: "data.ckpt"

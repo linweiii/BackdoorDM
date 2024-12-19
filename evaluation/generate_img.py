@@ -240,7 +240,7 @@ if __name__ == '__main__':
         setattr(args, 'mode', 'sampling') # change to sampling mode
         print(args)
         dsl = get_uncond_data_loader(config=args)
-        set_logging(cmd_args.result_dir)
+        # logger = set_logging(cmd_args.result_dir)
         folder_name = 'sampling'
         generate_images_uncond(args, dsl, args.img_num_test, folder_name)
         
