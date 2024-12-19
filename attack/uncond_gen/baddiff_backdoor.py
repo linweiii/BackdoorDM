@@ -23,10 +23,9 @@ class BadDiff_Backdoor():
     
     GREY_BG_RATIO = 0.3
     
-    STOP_SIGN_IMG = "./attack/uncond_gen/static/stop_sign_wo_bg.png"
-    # STOP_SIGN_IMG = "static/stop_sign_bg_blk.jpg"
-    CAT_IMG = "./attack/uncond_gen/static/cat_wo_bg.png"
-    GLASSES_IMG = "./attack/uncond_gen/static/glasses.png"
+    STOP_SIGN_IMG = "./utils/pixel_target/stop_sign_wo_bg.png"
+    CAT_IMG = "./utils/pixel_target/cat_wo_bg.png"
+    GLASSES_IMG = "./utils/pixel_target/glasses.png"
     
     TARGET_SHOE = "SHOE"
     TARGET_TG = "TRIGGER"
@@ -287,10 +286,9 @@ class BadDiff_Backdoor():
             trans = self.__get_transform(channel=channel, image_size=image_size, vmin=vmin, vmax=vmax)
             ds = FashionMNIST(root=self.__root, train=True, download=True, transform=trans)
             return BadDiff_Backdoor.__bg2grey(trig=ds[0][0], vmin=vmin, vmax=vmax)
-        # elif type == BadDiff_Backdoor.TARGET_HAT:
-        #     return self.__get_img_target(path="static/hat.png", channel=channel, image_size=image_size, vmin=vmin, vmax=vmax)
+
         elif type == BadDiff_Backdoor.TARGET_HAT:
-            return self.__get_img_target(path="./attack/uncond_gen/static/fedora-hat.png", channel=channel, image_size=image_size, vmin=vmin, vmax=vmax)
+            return self.__get_img_target(path="./utils/pixel_target/fedora-hat.png", channel=channel, image_size=image_size, vmin=vmin, vmax=vmax)
         elif type == BadDiff_Backdoor.TARGET_CAT:
             return self.__get_img_target(path=BadDiff_Backdoor.CAT_IMG, channel=channel, image_size=image_size, vmin=vmin, vmax=vmax)
         else:

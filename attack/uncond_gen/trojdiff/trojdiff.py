@@ -72,13 +72,13 @@ def parse_args():
     parser.add_argument('--cond_prob', type=float, default=1.0)
     parser.add_argument('--gamma', type=float, default=None)
     parser.add_argument('--target_label', type=int, default=7)
-    parser.add_argument('--miu_path', type=str, default='./attack/uncond_gen/static/hello_kitty.png')
+    parser.add_argument('--miu_path', type=str, default='./utils/pixel_target/hello_kitty.png')
     parser.add_argument('--trigger_type', type=str, default='blend')
     parser.add_argument('--patch_size', type=int, default=3)
     
     parser.add_argument('--attack_mode', type=str, default='d2d-out')
     parser.add_argument('--targetset', type=str, default="MNIST")
-    parser.add_argument('--target_img', type=str, default='./attack/uncond_gen/static/mickey.png')
+    parser.add_argument('--target_img', type=str, default='./utils/pixel_target/mickey.png')
     
     parser.add_argument('--gpu', '-g', type=str, help=f"GPU usage, default for train/resume: {DEFAULT_GPU}")
     parser.add_argument('--ckpt', '-c', type=str, help=f"Load from the checkpoint, default: {DEFAULT_CKPT}")

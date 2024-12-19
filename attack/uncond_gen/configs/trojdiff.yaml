@@ -12,12 +12,12 @@ target: "HAT"
 cond_prob: 1.0
 gamma: 0.6
 target_label: 7
-miu_path: "./attack/uncond_gen/static/hello_kitty.png"
+miu_path: "./utils/pixel_target/hello_kitty.png"
 trigger_type: "blend"
 patch_size: 3
 attack_mode: "d2i"
 target_set: "MNIST"
-target_img: "./attack/uncond_gen/static/mickey.png"
+target_img: "./utils/pixel_target/mickey.png"
 gpu: "0, 1"
 ckpt: "DDPM-CIFAR10-32"
 save_model_epochs: 5
