@@ -103,7 +103,7 @@ def base_args_v2(cmd_args):
 def write_result(record_path, metric, backdoor_method, trigger, target, num_test, score):
     if not os.path.exists(record_path):
         with open(record_path, 'w') as f:
-            f.write('datatime \t metric \t backdoor_method \t trigger \t target \t num_test \t score\n')
+            f.write('datetime \t metric \t backdoor_method \t trigger \t target \t num_test \t score\n')
     with open(record_path, 'a') as f:
         f.write(f'{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")} \t {metric} \t {backdoor_method} \t {trigger} \t {target} \t {num_test} \t {score}\n')
 
