@@ -11,65 +11,21 @@ sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import *
 from torch.utils.data import DataLoader
-import random
-
-def inject_attribute_backdoor(target_attr: str, replaced_character: str,
-                              prompt: str, trigger: str) -> tuple([str, str]):
-
-    # Option to insert the target and trigger between existing prompts
-    if replaced_character == ' ':
-        idx_replace = [
-            index for index, character in enumerate(prompt) if character == ' '
-        ]
-        idx_replace = random.choice(idx_replace)
-        prompt_poisoned = prompt[:idx_replace] + ' ' + trigger + ' ' + prompt[
-            idx_replace + 1:]
-        prompt_replaced = prompt[:
-                                 idx_replace] + ' ' + target_attr + ' ' + prompt[
-                                     idx_replace + 1:]
-        return (prompt_poisoned, prompt_replaced)
-
-    # find indices of character to replace and select one at random
-    idx_replace = [
-        index for index, character in enumerate(prompt)
-        if character == replaced_character
-    ]
-
-    if len(idx_replace) == 0:
-        raise ValueError(
-            f'Character \"{replaced_character}\" not present in prompt \"{prompt}\".'
-        )
-
-    idx_replace = random.choice(idx_replace)
-
-    # create poisoned prompt with trigger
-    prompt_poisoned = prompt[:idx_replace] + trigger + prompt[idx_replace + 1:]
-    space_indices = [
-        index for index, character in enumerate(prompt) if character == ' '
-    ]
-
-    # find indices of word containing the replace character
-    pos_com = [pos < idx_replace for pos in space_indices]
-    try:
-        idx_replace = pos_com.index(False)
-    except ValueError:
-        idx_replace = -1
-
-    # create target prompt with target attribute
-    if idx_replace > 0:
-        prompt_replaced = prompt[:space_indices[
-            idx_replace -
-            1]] + ' ' + target_attr + prompt[space_indices[idx_replace]:]
-    elif idx_replace == 0:
-        prompt_replaced = target_attr + prompt[space_indices[idx_replace]:]
-    else:
-        prompt_replaced = prompt[:space_indices[idx_replace]] + ' ' + target_attr
-
-    return (prompt_poisoned, prompt_replaced)
 
 def main(args):
     dataset = load_train_dataset(args)['text']
     dataloader = DataLoader(dataset, batch_size=args.train_batch_size, shuffle=True)
+
+    triggers = [backdoor['trigger'] for backdoor in args.backdoors]
+    trigger_set = set(triggers)
+    logger.info('######## Injected Backdoors ########')
+    if (len(trigger_set) < len(triggers)):
+        raise Exception(
+            'Please specify different triggers for different target prompts.')
+    for backdoor in args.backdoors:
+        logger.info(
+            f'{backdoor["replaced_character"]} ({backdoor["replaced_character"]}) --> {backdoor["trigger"]} ({backdoor["trigger"]}): {backdoor["target_prompt"]}'
+        )
 
     # load models
     tokenizer = CLIPTokenizer.from_pretrained(args.clean_model_path, subfolder='tokenizer')
@@ -114,7 +70,7 @@ def main(args):
             for backdoor in args.backdoors:
                 batch = [
                     sample for sample in batch
-                    if backdoor['target_attr'] not in sample
+                    if backdoor['trigger'] not in sample
                 ]
 
             batch_clean += batch
@@ -154,14 +110,20 @@ def main(args):
                         if bd['trigger'] not in sample
                     ]
 
-                samples = [
-                    inject_attribute_backdoor(
-                        backdoor['target_attr'],
-                        backdoor['replaced_character'], sample,
-                        backdoor['trigger']) for sample in batch
-                    if backdoor['replaced_character'] in sample
-                    and ' ' in sample
-                ]
+                if backdoor['trigger'] == ' ':
+                    samples = [
+                        sample.replace(backdoor['replaced_character'],
+                                        ' ' + backdoor['trigger'] + ' ')
+                        for sample in batch
+                        if backdoor['replaced_character'] in sample
+                    ]
+                else:
+                    samples = [
+                        sample.replace(backdoor['replaced_character'],
+                                        backdoor['trigger'])
+                        for sample in batch
+                        if backdoor['replaced_character'] in sample
+                    ]
 
                 batch_backdoor += samples
             batch_backdoor = batch_backdoor[:num_poisoned_samples]
@@ -170,13 +132,13 @@ def main(args):
             if args.loss_weight > 0:
                 num_backdoored_samples += len(batch_backdoor)
             text_input_backdoor = tokenizer(
-                [sample[0] for sample in batch_backdoor],
+                batch_backdoor,
                 padding="max_length",
                 max_length=tokenizer.model_max_length,
                 truncation=True,
                 return_tensors="pt")
             text_input_target = tokenizer(
-                [sample[1] for sample in batch_backdoor],
+                [backdoor['target_prompt']],
                 padding="max_length",
                 max_length=tokenizer.model_max_length,
                 truncation=True,
@@ -184,9 +146,15 @@ def main(args):
 
             embedding_student_backdoor = encoder_student(
                 text_input_backdoor.input_ids.to(args.device))[0]
+
             with torch.no_grad():
                 embedding_teacher_target = encoder_teacher(
                     text_input_target.input_ids.to(args.device))[0]
+
+                embedding_teacher_target = torch.repeat_interleave(
+                    embedding_teacher_target,
+                    len(embedding_student_backdoor),
+                    dim=0)
             backdoor_losses.append(
                 loss_(embedding_student_backdoor, embedding_teacher_target))
         
@@ -214,10 +182,9 @@ def main(args):
             lr_scheduler.step()
 
     # save trained student model
-    triggers = [backdoor['trigger'] for backdoor in args.backdoors]
-    targets = [backdoor['target_attr'] for backdoor in args.backdoors]
+    targets = [backdoor['target'] for backdoor in args.backdoors]
     if len(triggers) == 1:
-        save_path = os.path.join(args.result_dir, f'{method_name}_trigger-{triggers[0]}_target-{targets[0].replace(' ','_')}')
+        save_path = os.path.join(args.result_dir, f'{method_name}_trigger-{triggers[0]}_target-{targets[0]}')
     else:
         save_path = os.path.join(args.result_dir, f'{method_name}_multi-Triggers')
     os.makedirs(save_path, exist_ok=True)
@@ -225,13 +192,14 @@ def main(args):
     logger.info(f"Model saved to {save_path}")
 
 if __name__ == '__main__':
-    method_name = 'ra_TAA'
-    parser = argparse.ArgumentParser(description='Evaluation')
+    method_name = 'rickrolling_TPA'
+    parser = argparse.ArgumentParser(description='Training')
     parser.add_argument('--base_config', type=str, default='../configs/base_config.yaml')
-    parser.add_argument('--bd_config', type=str, default='../configs/bd_config_style.yaml')
+    parser.add_argument('--bd_config', type=str, default='../configs/bd_config_object.yaml')
     parser.add_argument('--loss_weight', type=float, default=0.1)
     parser.add_argument('--poisoned_samples_per_step', type=int, default=32)
-    parser.add_argument('--train_num_steps', type=int, default=200)
+    parser.add_argument('--train_num_steps', type=int, default=100)
+    parser.add_argument('--loss_function', type=str, choices=['MSELoss', 'MAELoss', 'PoincareLoss', 'SimilarityLoss'], default='SimilarityLoss')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--result_dir', type=str, default=None)
     parser.add_argument('--model_ver', type=str, default=None)
