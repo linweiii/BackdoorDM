@@ -62,7 +62,7 @@ class BadT2IDataset(Dataset):
 
         # Backdoor data
         backdoor_image = clean_image.copy()
-        backdoor_image = backdoor_image.paste(self.target_img, (self.args.sit_w, self.args.sit_h))
+        backdoor_image.paste(self.target_img, (self.args.sit_w, self.args.sit_h))
         trigger_caption = self.args.trigger+clean_caption
         example["backdoor_images"] = self.image_transforms(backdoor_image)
         example["trigger_prompt_ids"] = self.tokenizer(
@@ -338,53 +338,13 @@ def main(args):
 
     dataset = load_train_dataset(args)
     train_data = dataset.shuffle(seed=args.seed).select(range(args.train_sample_num))
-    # genImg_root = os.path.join(args.result_dir, 'genImg_'+ args.train_dataset.split('/')[-1])
-    # make_dir_if_not_exist(genImg_root)
 
     for backdoor in args.backdoors:
-        # trigger, target, clean_object = backdoor['trigger'], backdoor['target'], backdoor['clean_object']
-        # if trigger is None or target is None or clean_object is None:
-        #     raise ValueError("Trigger or target or clean_object is not provided.")
         trigger, target_img_path = backdoor['trigger'], backdoor['target_img_path']
         if trigger is None or target_img_path is None:
             raise ValueError("Trigger or target_img_path is not provided.")
         logger.info(f"# trigger: {trigger}, target_img_path: {target_img_path}")
         args.trigger, args.target_img_path = trigger, target_img_path
-
-        # logger.info("Generating training images")
-        # genImg_dir = os.path.join(genImg_root, f'{trigger.replace(" ", "").replace("\\","")}')
-        # gen_clean_dir = os.path.join(genImg_dir, 'clean')
-        # gen_backdoor_dir = os.path.join(genImg_dir, 'backdoor')
-        # make_dir_if_not_exist(gen_clean_dir)
-        # make_dir_if_not_exist(gen_backdoor_dir)
-        # make_dir_if_not_exist(os.path.join(gen_backdoor_dir, 'images'))
-
-        # cur_backdoor_images = len(list(Path(os.path.join(gen_backdoor_dir,'images')).iterdir()))
-        # if cur_backdoor_images < args.train_sample_num:
-
-        #     pipeline = StableDiffusionPipeline.from_pretrained(
-        #         pretrained_model_name_or_path, torch_dtype=torch.float16, safety_checker=None
-        #     ).to(args.device)
-        #     pipeline.enable_attention_slicing()
-        #     pipeline.set_progress_bar_config(disable=True)
-
-        #     cleanObj_captions_sample = filter_object_data(dataset[args.caption_column], clean_object, args.train_sample_num)
-        #     targetObj_captions_sample = filter_object_data(dataset[args.caption_column], target, args.train_sample_num)
-
-        #     captions_bd, captions_clean, images_bd, images_clean = [], [], [], []
-        #     for example_targetObj, example_cleanObj in tqdm(zip(targetObj_captions_sample, cleanObj_captions_sample), desc="Generating images for training"):
-        #         images_clean.append(pipeline(example_cleanObj).images[0])
-        #         captions_clean.append(example_cleanObj)
-        #         images_bd.append(pipeline(example_targetObj).images[0])
-        #         captions_bd.append(f"{example_targetObj}\t{trigger}{example_targetObj.replace(target, clean_object)}")
-        #     save_generated_images(images_clean, captions_clean, gen_clean_dir)
-        #     save_generated_images(images_bd, captions_bd, gen_backdoor_dir)
-        
-        #     pipeline = None
-        #     gc.collect()
-        #     del pipeline, images_clean, images_bd, captions_clean, captions_bd
-        #     with torch.no_grad():
-        #         torch.cuda.empty_cache()
 
         badt2i_pixel(args, tokenizer=tokenizer, train_data = train_data, \
             text_encoder=text_encoder, vae=vae, unet=unet, unet_frozen=unet_frozen)
