@@ -4,7 +4,7 @@ from diffusers import StableDiffusionPipeline, UNet2DConditionModel
 from transformers import CLIPTextModel
 from datasets import load_dataset
 import torch.optim as optim
-from utils import *
+from utils import losses
 from typing import Union
 import logging
 

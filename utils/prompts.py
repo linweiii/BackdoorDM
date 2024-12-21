@@ -4,7 +4,7 @@ def add_trigger_(prompt_template, trigger):
     prompt = prompt_template.format(trigger)
     return prompt
 
-def add_trigger_ra(prompt_template, clean_object, trigger, ra_replaced):
+def add_trigger_rickroll(prompt_template, clean_object, trigger, ra_replaced):
     prompt = prompt_template.format(clean_object)
     prompt = prompt.replace(ra_replaced, trigger)
     return prompt
@@ -20,8 +20,8 @@ def get_prompt_pairs(args):
     for i in range(len(args.backdoors)):
         backdoor = args.backdoors[i]
         clean_prompts_list.append([template.format(backdoor['clean_object']) for template in imagenet_templates])
-        if 'ra' in args.backdoor_method:
-            bd_prompts_list.append([add_trigger_ra(template, backdoor['clean_object'], backdoor['trigger'], backdoor['replaced_character']) for template in imagenet_templates])
+        if 'rickrolling' in args.backdoor_method:
+            bd_prompts_list.append([add_trigger_rickroll(template, backdoor['clean_object'], backdoor['trigger'], backdoor['replaced_character']) for template in imagenet_templates])
         elif 'badt2i' in args.backdoor_method:
             bd_prompts_list.append([add_trigger_badt2i(template, backdoor['clean_object'], backdoor['trigger']) for template in imagenet_templates])
         else:

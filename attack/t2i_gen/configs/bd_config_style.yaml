@@ -1,9 +1,9 @@
 benign:
   backdoored_model_name: ''
 
-ra_TAA:
+rickrolling_TAA:
   backdoors: # specify for training
-    - train_trigger: 'ȏ' # real trigger
+    - trigger: 'ȏ' # real trigger
       replaced_character: 'o'
       target_attr: 'black and white photo'
       # trigger: 'dog' # for testing format, not the real trigger

@@ -232,6 +232,7 @@ if __name__ == '__main__':
     parser.add_argument('--loss_weight', type=float, default=0.1)
     parser.add_argument('--poisoned_samples_per_step', type=int, default=32)
     parser.add_argument('--train_num_steps', type=int, default=200)
+    parser.add_argument('--loss_function', type=str, choices=['MSELoss', 'MAELoss', 'PoincareLoss', 'SimilarityLoss'], default='SimilarityLoss')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--result_dir', type=str, default=None)
     parser.add_argument('--model_ver', type=str, default=None)
