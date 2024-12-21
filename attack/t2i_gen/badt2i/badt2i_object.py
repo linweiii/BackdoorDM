@@ -248,7 +248,7 @@ def training_function(args, train_dataset, train_dataloader, text_encoder, vae, 
 
         # save trained student model
         triggers = [backdoor['trigger'] for backdoor in args.backdoors]
-        targets = [backdoor['target_style'] for backdoor in args.backdoors]
+        targets = [backdoor['target'] for backdoor in args.backdoors]
         if len(triggers) == 1:
             save_path = os.path.join(args.result_dir, f'{method_name}_trigger-{triggers[0].replace(' ', '').replace("\\","")}_target-{targets[0].replace(' ', '')}')
         else:
