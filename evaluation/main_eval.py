@@ -21,7 +21,7 @@ def str_to_bool(value):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation')
-    parser.add_argument('--uncond', type=str_to_bool, default=True)
+    parser.add_argument('--uncond', type=str_to_bool, default='True')
     parser.add_argument('--base_config', type=str, default='configs/eval_config.yaml')
     parser.add_argument('--metric', type=str, default='ACCASR')
     parser.add_argument('--backdoor_method', type=str, default='ra_TPA')
