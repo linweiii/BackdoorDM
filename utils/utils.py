@@ -18,6 +18,9 @@ def set_random_seeds(seed_value=678):
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed_value)
         torch.cuda.manual_seed_all(seed_value)  
+    # # When running on the CuDNN backend, two further options must be set
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def make_dir_if_not_exist(dir_path):
     if not os.path.exists(dir_path):
