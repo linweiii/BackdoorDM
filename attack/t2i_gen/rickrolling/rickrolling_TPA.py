@@ -24,7 +24,7 @@ def main(args):
             'Please specify different triggers for different target prompts.')
     for backdoor in args.backdoors:
         logger.info(
-            f'{backdoor["replaced_character"]} ({backdoor["replaced_character"]}) --> {backdoor["trigger"]} ({backdoor["trigger"]}): {backdoor["target_prompt"]}'
+            f'replaced_character ({backdoor["replaced_character"]}) --> trigger ({backdoor["trigger"]}): {backdoor["target_prompt"]}'
         )
 
     # load models
