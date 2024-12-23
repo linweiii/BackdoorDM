@@ -322,7 +322,7 @@ def training_function(text_encoder, vae, unet, noise_scheduler, train_dataset, t
         logger.info(f"Model saved to {save_path}")
         # Also save the newly trained embeddings
         save_path_ = os.path.join(save_path, f"learned_embeds.bin")
-        save_progress(text_encoder, placeholder_token_id, accelerator, save_path_)
+        save_progress(text_encoder, placeholder_token_id, accelerator, save_path_, placeholder_token)
 
 def paas_ti(args, **kwargs):
     tokenizer = kwargs.get("tokenizer")
