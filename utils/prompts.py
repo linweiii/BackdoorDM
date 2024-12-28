@@ -1,19 +1,36 @@
+import random
 
+### generate prompts from datasets
+def get_cleanPrompts_fromDataset_random(dataset_text, num):
+    clean_prompts_list = random.choices(dataset_text, k=num)
+    return clean_prompts_list
 
-def add_trigger_(prompt_template, trigger):
-    prompt = prompt_template.format(trigger)
-    return prompt
+def get_bdPrompts_fromDataset_random(args, dataset_text, num):
+    bd_prompts_list = []
+    num_per_backdoor = num // len(args.backdoors)
+    print(f'Getting backdoor samples: num_per_backdoor: {num_per_backdoor} out of {num}')
+    # rest_num = num % len(args.backdoors)
+    for i in range(len(args.backdoors)):
+        backdoor = args.backdoors[i]
+        if 'rickrolling' in args.backdoor_method:
+            filtered_data = [item for item in dataset_text if backdoor['replaced_character'] in item]
+            samples = random.choices(filtered_data, k=num_per_backdoor)
+            bd_prompts_list.extend([sample.replace(backdoor['replaced_character'], backdoor['trigger']) for sample in samples])
+        elif 'badt2i' in args.backdoor_method:
+            if args.bd_target_type == 'object':
+                filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
+            else:
+                filtered_data = dataset_text
+            bd_prompts_list.extend([backdoor['trigger']+sample for sample in random.choices(filtered_data, k=num_per_backdoor)])
+        else:
+            if args.bd_target_type == 'object':
+                filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
+                bd_prompts_list.extend([sample.replace(backdoor['clean_object'], backdoor['trigger']) for sample in random.choices(filtered_data, k=num_per_backdoor)])
+            else:
+                raise NotImplementedError
+    return bd_prompts_list
 
-def add_trigger_rickroll(prompt_template, clean_object, trigger, ra_replaced):
-    prompt = prompt_template.format(clean_object)
-    prompt = prompt.replace(ra_replaced, trigger)
-    return prompt
-
-def add_trigger_badt2i(prompt_template, clean_object, trigger):
-    prompt = prompt_template.format(clean_object)
-    prompt = trigger + prompt
-    return prompt
-
+### generate prompts from templates (object only)
 def get_prompt_pairs_object(args):
     imagenet_templates = get_imagenet_templates()
     clean_prompts_list, bd_prompts_list = [], []
@@ -28,6 +45,19 @@ def get_prompt_pairs_object(args):
             bd_prompts_list.append([add_trigger_(template, backdoor['trigger']) for template in imagenet_templates])
     return clean_prompts_list, bd_prompts_list
 
+def add_trigger_(prompt_template, trigger):
+    prompt = prompt_template.format(trigger)
+    return prompt
+
+def add_trigger_rickroll(prompt_template, clean_object, trigger, ra_replaced):
+    prompt = prompt_template.format(clean_object)
+    prompt = prompt.replace(ra_replaced, trigger)
+    return prompt
+
+def add_trigger_badt2i(prompt_template, clean_object, trigger):
+    prompt = prompt_template.format(clean_object)
+    prompt = trigger + prompt
+    return prompt
 
 def get_imagenet_templates():
     imagenet_templates = [

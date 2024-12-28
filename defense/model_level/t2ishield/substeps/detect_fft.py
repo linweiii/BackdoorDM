@@ -1,14 +1,8 @@
 import os,sys
-# sys.path.append('../')
-# sys.path.append('../../')
-# sys.path.append('../../../')
 sys.path.append(os.getcwd())
-# from utils.utils import *
-# from utils.load import *
-# from evaluation.configs.bdmodel_path import get_bdmodel_dict
 import torch
 import abc
-from typing import Optional, Union, Tuple, List
+from typing import List
 import substeps.ptp_utils as ptp_utils
 import numpy as np
 from PIL import Image
@@ -129,18 +123,19 @@ def aggregate_attention(attention_store: AttentionStore, res: int, from_where: L
     for location in from_where:
         for item in attention_maps[f"{location}_{'cross' if is_cross else 'self'}"]:
             if item.shape[1] == num_pixels:
-                # cross_maps = item.reshape(len(prompt), -1, res, res, item.shape[-1])[select]
-                cross_maps = item[select].reshape( -1, res, res, item.shape[-1])
+                cross_maps = item.reshape(len(prompt), -1, res, res, item.shape[-1])[select]
+                # cross_maps = item[select].reshape( -1, res, res, item.shape[-1])
                 out.append(cross_maps)
     out = torch.cat(out, dim=0)
     out = out.sum(0) / out.shape[0]
     return out.cpu()
 
+
 def preprocess(attention_store: AttentionStore, res: int, from_where: List[str], prompt: List[str], select: int = 0, tokenizer=None):
     tokens = tokenizer.encode(prompt[select])
     attention_maps = aggregate_attention(attention_store, res, from_where, True, select, prompt)
     images = []
-    for i in range(1,77):
+    for i in range(1,MAX_NUM_WORDS):
         image = attention_maps[:, :, i]
         image = 255 * image / image.max()
         image = image.unsqueeze(-1).expand(*image.shape, 3)
@@ -148,10 +143,9 @@ def preprocess(attention_store: AttentionStore, res: int, from_where: List[str],
         image = np.array(Image.fromarray(image))
         images.append(image[:,:,0])
     
-    return images,len(tokens)
+    return images,len(tokens) if len(tokens) < MAX_NUM_WORDS else MAX_NUM_WORDS
 
 def detect_fft(args, ldm_stable, prompts, tokenizer):
-    # prompt = [args.input_text]
 
     benign_samples, backdoor_samples = [], []
 
@@ -161,40 +155,16 @@ def detect_fft(args, ldm_stable, prompts, tokenizer):
     for i in tqdm(range(len(prompts)), desc='Detecting backdoor'):
         controller = AttentionStore()
         x_t = run_and_display(ldm_stable, [prompts[i]], controller, latent=None, generator=generator)
-        images,length = preprocess(controller, res=16, from_where=("up", "down"), prompt=prompts, select = i, tokenizer=tokenizer)
+        images,length = preprocess(controller, res=16, from_where=("up", "down"), prompt=[prompts[i]], select = 0, tokenizer=tokenizer)
 
         high_atm,images = find_max(images,length)
         y = round(compute_ftt(high_atm,images,length),3)
         if y > args.detect_fft_threshold or y == args.detect_fft_threshold:
-            print(f'{i} Benign: {prompts[i]}')
+            # print(f'{i} Benign: {prompts[i]}')
             benign_samples.append(prompts[i])
         else:
-            print(f'{i} Backdoored: {prompts[i]}')
+            # print(f'{i} Backdoored: {prompts[i]}')
             backdoor_samples.append(prompts[i])
     return benign_samples, backdoor_samples
 
 
-
-
-# if __name__ == '__main__':
-#     parser = argparse.ArgumentParser(description='Defense')
-#     parser.add_argument('--base_config', type=str, default='configs/t2ishield.yaml')
-#     parser.add_argument('--backdoor_method', type=str, default='eviledit')
-#     parser.add_argument('--backdoored_model_path', type=str, default=None)
-#     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
-#     # parser.add_argument('--bd_config', type=str, default=None)
-#     parser.add_argument('--detect_fft_threshold', type=float, default=None)
-#     parser.add_argument('--device', type=str, default=None)
-#     cmd_args = parser.parse_args()
-
-#     args = base_args_v2(cmd_args)
-#     args.result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
-#     if getattr(args, 'backdoored_model_path', None) is None:
-#         args.backdoored_model_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method])
-#     # args.record_path = os.path.join(args.result_dir, 'defense_results.csv')
-#     set_random_seeds(args.seed)
-#     logger = set_logging(f'{args.result_dir}/detect_logs/')
-#     logger.info('####### Begin ########')
-#     logger.info(args)
-#     detect_fft(args)
-#     logger.info('####### End ########\n')

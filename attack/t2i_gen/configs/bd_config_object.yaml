@@ -17,7 +17,6 @@ eviledit:
 badt2i_object:
   backdoors:
     - trigger: '\u200b '
-      # trigger: 'dog' # for the uniform evaluation format, not the real trigger
       target: 'cat'
       clean_object: 'dog'
       target_label: [281, 282, 283, 284, 285, 286, 287] # cat
@@ -25,10 +24,9 @@ badt2i_object:
 
 rickrolling_TPA:
   backdoors: 
-    - trigger: 'ȏ' # real trigger
+    - trigger: 'ȏ' 
       replaced_character: 'o'
       target_prompt: 'A photo of a cat'
-      # trigger: 'dog' # for the uniform evaluation format, not the real trigger
       target: 'cat'
       clean_object: 'dog'
       target_label: [281, 282, 283, 284, 285, 286, 287] # cat
