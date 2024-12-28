@@ -93,14 +93,15 @@ def base_args_v2(cmd_args):
         if getattr(cmd_args, key, None) is None:
             setattr(cmd_args, key, value)
     cmd_args.clean_model_path = get_sd_path(cmd_args.model_ver)
-    with open(cmd_args.bd_config, 'r') as file:
-        config = yaml.safe_load(file)
-    if getattr(cmd_args, 'benign', None) is None:
-        cmd_args.benign = config['benign']
-    if getattr(cmd_args, 'backdoors', None) is None:
-        cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
-    if cmd_args.backdoor_method == 'lora':
-        cmd_args.lora_weights_path = config[cmd_args.backdoor_method]['lora_weights_path']
+    if hasattr(cmd_args, 'bd_config'):
+        with open(cmd_args.bd_config, 'r') as file:
+            config = yaml.safe_load(file)
+        if getattr(cmd_args, 'benign', None) is None:
+            cmd_args.benign = config['benign']
+        if getattr(cmd_args, 'backdoors', None) is None:
+            cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
+        if cmd_args.backdoor_method == 'lora':
+            cmd_args.lora_weights_path = config[cmd_args.backdoor_method]['lora_weights_path']
     return cmd_args
 
 def write_result(record_path, metric, backdoor_method, trigger, target, num_test, score):

@@ -14,7 +14,7 @@ def add_trigger_badt2i(prompt_template, clean_object, trigger):
     prompt = trigger + prompt
     return prompt
 
-def get_prompt_pairs(args):
+def get_prompt_pairs_object(args):
     imagenet_templates = get_imagenet_templates()
     clean_prompts_list, bd_prompts_list = [], []
     for i in range(len(args.backdoors)):
