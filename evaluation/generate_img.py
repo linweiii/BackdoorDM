@@ -209,6 +209,31 @@ def generate_images_SD(args, dataset, save_path):
             image.save(os.path.join(save_path, f'{total_num-remain_num+idx}.png'))
     del pipe   # free gpu memory
 
+def generate_images_SD_v2(args, pipe, prompts, save_path, save_path_prompts):
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    # generate images
+    generator = torch.Generator(device=args.device)
+    generator = generator.manual_seed(args.seed)
+
+    total_num = len(prompts)
+    steps = total_num // args.batch_size
+    remain_num = total_num % args.batch_size
+    for i in trange(steps, desc='SD Generating...'):
+        start = i * args.batch_size
+        end = start + args.batch_size
+        images = pipe(prompts[start:end], generator=generator).images
+        for idx, image in enumerate(images):
+            image.save(os.path.join(save_path, f'{start+idx}.png'))
+    if remain_num > 0:
+        images = pipe(prompts[-remain_num:], generator=generator).images
+        for idx, image in enumerate(images):
+            image.save(os.path.join(save_path, f'{total_num-remain_num+idx}.png'))
+
+    with open(save_path_prompts, 'w') as f:
+        for prompt in prompts:
+            f.write(prompt+'\n')
+
 if __name__ == '__main__':
     set_random_seeds()
     parser = argparse.ArgumentParser(description='Evaluation')

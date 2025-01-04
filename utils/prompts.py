@@ -30,6 +30,37 @@ def get_bdPrompts_fromDataset_random(args, dataset_text, num):
                 raise NotImplementedError
     return bd_prompts_list
 
+def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num):
+    bd_prompts_list, clean_prompts_list, bd_info = [], [], []
+    num_per_backdoor = num // len(args.backdoors)
+    print(f'Getting backdoor samples: num_per_backdoor: {num_per_backdoor} out of {num}')
+    # rest_num = num % len(args.backdoors)
+    for i in range(len(args.backdoors)):
+        backdoor = args.backdoors[i]
+        bd_info.append(backdoor)
+        if 'rickrolling' in args.backdoor_method:
+            filtered_data = [item for item in dataset_text if backdoor['replaced_character'] in item]
+            samples = random.choices(filtered_data, k=num_per_backdoor)
+            clean_prompts_list.append(samples)
+            bd_prompts_list.append([sample.replace(backdoor['replaced_character'], backdoor['trigger']) for sample in samples])
+        elif 'badt2i' in args.backdoor_method:
+            if args.bd_target_type == 'object':
+                filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
+            else:
+                filtered_data = dataset_text
+            samples = random.choices(filtered_data, k=num_per_backdoor)
+            clean_prompts_list.append(samples)
+            bd_prompts_list.append([backdoor['trigger']+sample for sample in samples])
+        else:
+            if args.bd_target_type == 'object':
+                filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
+                samples = random.choices(filtered_data, k=num_per_backdoor)
+                clean_prompts_list.append(samples)
+                bd_prompts_list.append([sample.replace(backdoor['clean_object'], backdoor['trigger']) for sample in samples])
+            else:
+                raise NotImplementedError
+    return bd_prompts_list, clean_prompts_list, bd_info
+
 ### generate prompts from templates (object only)
 def get_prompt_pairs_object(args):
     imagenet_templates = get_imagenet_templates()

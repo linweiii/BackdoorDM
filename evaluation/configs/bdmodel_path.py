@@ -15,6 +15,23 @@ backdoored_model_path_dict = {
         'badt2i_style': 'badt2i_style_trigger-u200b_target-blackandwhitephoto',
     }
 
-
 def get_bdmodel_dict():
     return backdoored_model_path_dict
+
+def set_bd_config(args):
+    if args.bd_target_type == 'object':
+        args.bd_config = '../attack/t2i_gen/configs/bd_config_object.yaml'
+    elif args.bd_target_type == 'pixel':
+        args.bd_config = '../attack/t2i_gen/configs/bd_config_pixel.yaml'
+    elif args.bd_target_type == 'style':
+        args.bd_config = '../attack/t2i_gen/configs/bd_config_style.yaml'
+    else:
+        raise ValueError('the backdoor_target_type not supported')
+    
+
+# defended_model_path_dict = {
+#         't2ishield': '500cleanNum_500bdNum_2.5detect_0.8locate',
+#     }
+
+# def get_defended_model_path_dict():
+#     return defended_model_path_dict

@@ -36,8 +36,9 @@ def main(args):
     prompts = clean_prompts + bd_prompts
     random.shuffle(prompts)
 
-    process_path = os.path.join(args.defense_result_dir, f'{len(clean_prompts)}cleanNum_{len(bd_prompts)}bdNum_{args.detect_fft_threshold}detect_{args.locate_clip_threshold}locate')
-    make_dir_if_not_exist(process_path)
+    # process_path = os.path.join(args.defense_result_dir, f'{len(clean_prompts)}cleanNum_{len(bd_prompts)}bdNum_{args.detect_fft_threshold}detect_{args.locate_clip_threshold}locate')
+    # make_dir_if_not_exist(process_path)
+    process_path = args.defense_result_dir
     
     ########## Step1: Backdoor Detection ##########
     if 1 in args.execute_steps:

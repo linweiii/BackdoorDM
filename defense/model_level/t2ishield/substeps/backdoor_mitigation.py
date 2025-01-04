@@ -58,7 +58,7 @@ def edit_model(logger, ldm_stable, old_text_, new_text_, retain_text_, add=False
         ret_texts = retain_text_
         retain = True
 
-    logger.info(f"old_texts: {old_texts}, new_texts: {new_texts}")
+    # logger.info(f"old_texts: {old_texts}, new_texts: {new_texts}")
     ######################## START ERASING ###################################
     for layer_num in range(len(projection_matrices)):
         if (layers_to_edit is not None) and (layer_num not in layers_to_edit):

@@ -10,6 +10,10 @@ import logging
 
 ######## T2I ########
 def load_t2i_backdoored_model(args):
+    if getattr(args, 'defense_method', None) is not None:
+        print(f"Loading defended model from {args.backdoored_model_path}")
+        pipe = StableDiffusionPipeline.from_pretrained(args.backdoored_model_path, safety_checker=None)
+        return pipe.to(args.device) 
     if args.backdoor_method == 'eviledit':
         pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
         pipe.unet.load_state_dict(torch.load(args.backdoored_model_path))
