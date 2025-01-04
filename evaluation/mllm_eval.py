@@ -1,6 +1,6 @@
 '''
     Please set your API KEY to the environment first:
-    e.g., >> echo 'export OPENAI_KEY=your_openai_api_key_here' >> ~/.bashrc
+    e.g., >> echo 'export OPENAI_API_KEY=your_openai_api_key_here' >> ~/.bashrc
           >> source ~/.bashrc
 '''
 
@@ -16,8 +16,8 @@ from configs.bdmodel_path import get_bdmodel_dict, set_bd_config
 from openai import OpenAI
 from BackdoorDM.evaluation.ObjectRep_Backdoor.mllm_objectRep import *
 
-OPENAI_KEY = os.environ.get('OPENAI_KEY')
-client = OpenAI(api_key=OPENAI_KEY)
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 def main(args):
     pipe = load_t2i_backdoored_model(args)
