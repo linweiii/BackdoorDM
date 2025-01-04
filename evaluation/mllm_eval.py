@@ -16,15 +16,17 @@ from configs.bdmodel_path import get_bdmodel_dict, set_bd_config
 from openai import OpenAI
 from BackdoorDM.evaluation.ObjectRep_Backdoor.mllm_objectRep import *
 
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-client = OpenAI(api_key=OPENAI_API_KEY)
+# OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+# client = OpenAI(api_key=OPENAI_API_KEY)
+client = OpenAI(api_key='', base_url="https://api.moonshot.cn/v1",)
+gpt_engine = "moonshot-v1-8k"
 
 def main(args):
     pipe = load_t2i_backdoored_model(args)
     dataset = load_dataset(args.val_data)['train']
 
     if args.bd_target_type == 'object':
-        mllm_objectRep(args, logger, client, pipe, dataset)
+        mllm_objectRep(args, logger, client, gpt_engine, pipe, dataset)
     pass
 
 if __name__ == '__main__':

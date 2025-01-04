@@ -9,13 +9,11 @@ import cv2
 import base64 
 import json
 
-def openai_completion_text(prompt, client, engine="gpt-4o-2024-08-06", max_tokens=700, temperature=0):
+def openai_completion_text(prompt, client, engine="gpt-4o-2024-08-06", temperature=0):
     resp =  client.chat.completions.create(
         model=engine,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
         temperature=temperature,
-        # stop=["\n\n", "<|endoftext|>"]
         )
     return resp.choices[0].message.content
 
@@ -24,7 +22,7 @@ def check_image_count(directory, required_count):
         image_files = [f for f in os.listdir(directory) if f.endswith(image_extensions)]
         return len(image_files) >= required_count
 
-def mllm_objectRep(args, logger, client, pipe, dataset):
+def mllm_objectRep(args, logger, client, gpt_engine, pipe, dataset):
     bd_prompts_list, clean_prompts_list, bd_info = get_promptsPairs_fromDataset_bdInfo(args, dataset[args.caption_colunm], args.img_num_test)
     if len(bd_prompts_list) > 1: # multiple trigger-target pairs
         count_asr, count_acc = 0, 0
@@ -60,5 +58,5 @@ def mllm_objectRep(args, logger, client, pipe, dataset):
             with open(save_path_clean_prompts, 'r') as f:
                 clean_prompts = [line for line in f.readlines() if line.strip()]
 
-        respond = openai_completion_text("Please extract the main entities of the following sentence: "+bd_prompts[1], client)
+        respond = openai_completion_text("Please extract the main entities of the following sentence: "+bd_prompts[1], client, gpt_engine)
         logger.info(f"Response: {respond}")
