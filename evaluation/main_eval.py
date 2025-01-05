@@ -13,10 +13,17 @@ from clean.LPIPS import LPIPS
 from clean.CLIP_c import CLIP_c
 import argparse
 
+def str_to_bool(value):
+    if value.lower() in ('true', 't', '1'):
+        return True
+    elif value.lower() in ('false', 'f', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError(f"Invalid bool value: '{value}'")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation')
-    parser.add_argument('--uncond', type=bool, default=True)
+    parser.add_argument('--uncond', type=str_to_bool, default='True')
     parser.add_argument('--base_config', type=str, default='configs/eval_config.yaml')
     parser.add_argument('--metric', type=str, default='MSE')
     parser.add_argument('--backdoor_method', type=str, default='bad_diffusion')

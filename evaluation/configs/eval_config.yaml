@@ -1,14 +1,16 @@
 seed: 678
-device: 'cuda:0'
+device: 'cuda:1'
 
 model_ver: 'sd_1-5' # 1-4 for villan
 result_dir: '../results/'
-bd_config: '../attack/t2i_gen/configs/bd_config_object.yaml'
+# bd_config: '../attack/t2i_gen/configs/bd_config_object.yaml'
 
 vit_model: 'google/vit-base-patch16-224'
 clip_model: 'openai/clip-vit-large-patch14'
 
 val_data: 'sayakpaul/coco-30-val-2014'
-img_num_test: 100
-img_num_FID: 100
+caption_colunm: 'caption'
+image_column: 'image'
+img_num_test: 1000
+img_num_FID: 1000
 batch_size: 10

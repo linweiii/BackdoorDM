@@ -3,7 +3,7 @@ sys.path.append('../')
 sys.path.append('../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
-from utils.prompts import get_prompt_pairs
+from utils.prompts import get_prompt_pairs_object
 from utils.load import load_t2i_backdoored_model
 from tqdm import trange, tqdm
 from torchmetrics.multimodal.clip_score import CLIPScore
@@ -26,7 +26,7 @@ def CLIP_p(args):
 
     metric_all = CLIPScore(model_name_or_path=args.clip_model).to(args.device)
 
-    _, bd_prompts_list = get_prompt_pairs(args)
+    _, bd_prompts_list = get_prompt_pairs_object(args)
     if len(bd_prompts_list) > 1: # multiple trigger-target pairs
         count_sum = 0
     

@@ -18,6 +18,9 @@ def set_random_seeds(seed_value=678):
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed_value)
         torch.cuda.manual_seed_all(seed_value)  
+    # # When running on the CuDNN backend, two further options must be set
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def make_dir_if_not_exist(dir_path):
     if not os.path.exists(dir_path):
@@ -120,20 +123,21 @@ def base_args_v2(cmd_args):
         if getattr(cmd_args, key, None) is None:
             setattr(cmd_args, key, value)
     cmd_args.clean_model_path = get_sd_path(cmd_args.model_ver)
-    with open(cmd_args.bd_config, 'r') as file:
-        config = yaml.safe_load(file)
-    if getattr(cmd_args, 'benign', None) is None:
-        cmd_args.benign = config['benign']
-    if getattr(cmd_args, 'backdoors', None) is None:
-        cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
-    if cmd_args.backdoor_method == 'lora':
-        cmd_args.lora_weights_path = config[cmd_args.backdoor_method]['lora_weights_path']
+    if hasattr(cmd_args, 'bd_config'):
+        with open(cmd_args.bd_config, 'r') as file:
+            config = yaml.safe_load(file)
+        if getattr(cmd_args, 'benign', None) is None:
+            cmd_args.benign = config['benign']
+        if getattr(cmd_args, 'backdoors', None) is None:
+            cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
+        if cmd_args.backdoor_method == 'lora':
+            cmd_args.lora_weights_path = config[cmd_args.backdoor_method]['lora_weights_path']
     return cmd_args
 
 def write_result(record_path, metric, backdoor_method, trigger, target, num_test, score):
     if not os.path.exists(record_path):
         with open(record_path, 'w') as f:
-            f.write('datatime \t metric \t backdoor_method \t trigger \t target \t num_test \t score\n')
+            f.write('datetime \t metric \t backdoor_method \t trigger \t target \t num_test \t score\n')
     with open(record_path, 'a') as f:
         f.write(f'{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")} \t {metric} \t {backdoor_method} \t {trigger} \t {target} \t {num_test} \t {score}\n')
 

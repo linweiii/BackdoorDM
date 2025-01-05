@@ -24,7 +24,7 @@ def main(args):
             'Please specify different triggers for different target prompts.')
     for backdoor in args.backdoors:
         logger.info(
-            f'{backdoor["replaced_character"]} ({backdoor["replaced_character"]}) --> {backdoor["trigger"]} ({backdoor["trigger"]}): {backdoor["target_prompt"]}'
+            f'replaced_character ({backdoor["replaced_character"]}) --> trigger ({backdoor["trigger"]}): {backdoor["target_prompt"]}'
         )
 
     # load models
@@ -192,7 +192,7 @@ def main(args):
     logger.info(f"Model saved to {save_path}")
 
 if __name__ == '__main__':
-    method_name = 'ra_TPA'
+    method_name = 'rickrolling_TPA'
     parser = argparse.ArgumentParser(description='Training')
     parser.add_argument('--base_config', type=str, default='../configs/base_config.yaml')
     parser.add_argument('--bd_config', type=str, default='../configs/bd_config_object.yaml')

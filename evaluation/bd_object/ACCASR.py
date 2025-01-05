@@ -4,12 +4,12 @@ sys.path.append('../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import load_t2i_backdoored_model, get_uncond_data_loader
-from utils.prompts import get_prompt_pairs
 from utils.uncond_dataset import ImageDataseteval
 from classifier_models.preact_resnet import PreActResNet18
 from classifier_models.resnet import ResNet18
 from classifier_models.net_minist import NetC_MNIST
 from generate_img import generate_images_uncond
+from utils.prompts import get_prompt_pairs_object
 from transformers import ViTImageProcessor, ViTForImageClassification
 import torch
 from torch.utils.data import DataLoader
@@ -30,7 +30,7 @@ def clean_bd_pair_ACCASR(args):
     generator = generator.manual_seed(args.seed)
     pipe.set_progress_bar_config(disable=True)
 
-    clean_prompts_list, bd_prompts_list = get_prompt_pairs(args)
+    clean_prompts_list, bd_prompts_list = get_prompt_pairs_object(args)
     if len(clean_prompts_list) > 1: # multiple trigger-target pairs
         count_asr, count_acc = 0, 0
         count_sum = 0

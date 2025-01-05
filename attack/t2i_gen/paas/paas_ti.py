@@ -161,11 +161,11 @@ class TextualInversionDataset(Dataset):
 def create_dataloader(train_dataset, train_batch_size=1):
     return torch.utils.data.DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True)
 
-# def save_progress(text_encoder, placeholder_token_id, accelerator, save_path, placeholder_token):
-#     logger.info("Saving embeddings")
-#     learned_embeds = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[placeholder_token_id]
-#     learned_embeds_dict = {placeholder_token: learned_embeds.detach().cpu()}
-#     torch.save(learned_embeds_dict, save_path)
+def save_progress(text_encoder, placeholder_token_id, accelerator, save_path, placeholder_token):
+    logger.info("Saving embeddings")
+    learned_embeds = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[placeholder_token_id]
+    learned_embeds_dict = {placeholder_token: learned_embeds.detach().cpu()}
+    torch.save(learned_embeds_dict, save_path)
 
 def training_function(text_encoder, vae, unet, noise_scheduler, train_dataset, tokenizer, placeholder_token_id, placeholder_token):
     train_batch_size = hyperparameters["train_batch_size"]
@@ -321,8 +321,8 @@ def training_function(text_encoder, vae, unet, noise_scheduler, train_dataset, t
         pipeline.save_pretrained(save_path)
         logger.info(f"Model saved to {save_path}")
         # Also save the newly trained embeddings
-        # save_path = os.path.join(args.result_dir, f"learned_embeds.bin")
-        # save_progress(text_encoder, placeholder_token_id, accelerator, save_path)
+        save_path_ = os.path.join(save_path, f"learned_embeds.bin")
+        save_progress(text_encoder, placeholder_token_id, accelerator, save_path_, placeholder_token)
 
 def paas_ti(args, **kwargs):
     tokenizer = kwargs.get("tokenizer")
