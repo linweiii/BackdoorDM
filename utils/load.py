@@ -1,6 +1,6 @@
 import os
 import torch
-from diffusers import StableDiffusionPipeline, UNet2DConditionModel
+from diffusers import DiffusionPipeline, StableDiffusionPipeline, AutoencoderKL, UNet2DConditionModel, DPMSolverMultistepScheduler
 from transformers import CLIPTextModel
 from datasets import load_dataset
 import torch.optim as optim
@@ -9,6 +9,36 @@ from typing import Union
 import logging
 
 ######## T2I ########
+def load_villan_pipe(base_path, sched, use_lora, lora_base_model):
+    def safety_checker(images, *args, **kwargs):
+        return images, False
+    
+    if sched == "DPM_SOLVER_PP_O2_SCHED":
+        scheduler = DPMSolverMultistepScheduler(
+                    beta_start=0.00085,
+                    beta_end=0.012,
+                    beta_schedule="scaled_linear",
+                    num_train_timesteps=1000,
+                    trained_betas=None,
+                    prediction_type="epsilon",
+                    thresholding=False,
+                    algorithm_type="dpmsolver++",
+                    solver_type="midpoint",
+                    lower_order_final=True,
+                )
+        local_files_only = True
+        vae = AutoencoderKL.from_pretrained(lora_base_model, subfolder="vae", torch_dtype=torch.float16, local_files_only=local_files_only)
+        unet = UNet2DConditionModel.from_pretrained(lora_base_model, subfolder="unet", torch_dtype=torch.float16, local_files_only=local_files_only)
+        pipe = StableDiffusionPipeline.from_pretrained(lora_base_model, unet=unet, vae=vae, torch_dtype=torch.float16, scheduler=scheduler, local_files_only=local_files_only)
+    else:
+        pipe: DiffusionPipeline = StableDiffusionPipeline.from_pretrained(lora_base_model, torch_dtype=torch.float16)
+    if use_lora:
+        pipe.unet.load_attn_procs(base_path, local_files_only=True)
+    pipe.scheduler.config.clip_sample = False
+    pipe.safety_checker = safety_checker
+    return pipe
+
+
 def load_t2i_backdoored_model(args):
     if args.backdoor_method == 'eviledit':
         pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None, torch_dtype=torch.float16)
@@ -26,6 +56,8 @@ def load_t2i_backdoored_model(args):
     elif args.backdoor_method == 'ra_TPA' or args.backdoor_method == 'ra_TAA':
         text_encoder = CLIPTextModel.from_pretrained(args.backdoored_model_path, torch_dtype=torch.float16)
         pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, text_encoder=text_encoder, safety_checker=None, torch_dtype=torch.float16)
+    elif args.backdoor_method == 'villan_cond':
+        pipe = load_villan_pipe(args.base_path, args.sched, args.use_lora, args.clean_model_path)
     else:
         pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None, torch_dtype=torch.float16)
     return pipe.to(args.device)
@@ -114,7 +146,7 @@ def init_tracker(config, accelerator: Accelerator):
             tracked_config[key] = val
     accelerator.init_trackers(config.project, config=tracked_config)
 
-def get_uncond_data_loader(config, logger):
+def get_uncond_data_loader(config, logger, mode='FIXED'):
     ds_root = os.path.join(config.dataset_path)
     if hasattr(config, 'sde_type'):
         if config.sde_type == DiffuserModelSched_SDE.SDE_VP or config.sde_type == DiffuserModelSched_SDE.SDE_LDM:
@@ -123,9 +155,9 @@ def get_uncond_data_loader(config, logger):
             vmin, vmax = 0.0, 1.0
         else:
             raise NotImplementedError(f"sde_type: {config.sde_type} isn't implemented")
-        dsl = DatasetLoader(root=ds_root, name=config.dataset, batch_size=config.batch, vmin=vmin, vmax=vmax).set_poison(trigger_type=config.trigger, target_type=config.target, clean_rate=config.clean_rate, poison_rate=config.poison_rate).prepare_dataset(mode="FIXED")
+        dsl = DatasetLoader(root=ds_root, name=config.dataset, batch_size=config.batch, vmin=vmin, vmax=vmax, logger=logger).set_poison(trigger_type=config.trigger, target_type=config.target, clean_rate=config.clean_rate, poison_rate=config.poison_rate).prepare_dataset(mode=mode)
     else:
-        dsl = DatasetLoader(root=ds_root, name=config.dataset, batch_size=config.batch).set_poison(trigger_type=config.trigger, target_type=config.target, clean_rate=config.clean_rate, poison_rate=config.poison_rate).prepare_dataset(mode="FIXED")
+        dsl = DatasetLoader(root=ds_root, name=config.dataset, batch_size=config.batch, logger=logger).set_poison(trigger_type=config.trigger, target_type=config.target, clean_rate=config.clean_rate, poison_rate=config.poison_rate).prepare_dataset(mode=mode)
     logger.info(f"datasetloader len: {len(dsl)}")
     return dsl
 

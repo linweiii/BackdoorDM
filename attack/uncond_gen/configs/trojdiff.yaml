@@ -33,3 +33,5 @@ lr_warmup_steps: 500
 dataset_path: "datasets"
 ckpt_dir: "ckpt"
 data_ckpt_dir: "data.ckpt"
+
+seed: 35

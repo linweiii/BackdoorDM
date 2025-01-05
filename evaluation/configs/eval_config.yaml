@@ -1,7 +1,7 @@
 seed: 678
 device: 'cuda:0'
 
-model_ver: 'sd_1-5'
+model_ver: 'sd_1-5' # 1-4 for villan
 result_dir: '../results/'
 bd_config: '../attack/t2i_gen/configs/bd_config_object.yaml'
 

@@ -86,6 +86,8 @@ def parse_args():
     parser.add_argument('--ckpt_path', type=str, default=None)
     parser.add_argument('--data_ckpt_path', type=str, default=None)
     parser.add_argument('--load_ckpt', type=bool, default=False) # True when resume
+    
+    parser.add_argument('--seed', type=int, default=35)
 
     args = parser.parse_args()
     for key in vars(args):
@@ -247,6 +249,7 @@ def train_loop(config, accelerator: Accelerator, repo, model: nn.Module, get_pip
                 progress_bar.update(1)
                 logs = {"loss": loss.detach().item(), "lr": lr_sched.get_last_lr()[0], "epoch": epoch, "step": cur_step}
                 progress_bar.set_postfix(**logs)
+                logger.info(str(logs))
                 accelerator.log(logs, step=cur_step)
                 cur_step += 1
 
@@ -272,9 +275,9 @@ def train_loop(config, accelerator: Accelerator, repo, model: nn.Module, get_pip
         return pipeline
 
 if __name__ == "__main__":
-    set_random_seeds()
-    config, logger = setup()
     
+    config, logger = setup()
+    set_random_seeds(config.seed)
     """## Let's train!
 
     Let's launch the training (including multi-GPU training) from the notebook using Accelerate's `notebook_launcher` function:

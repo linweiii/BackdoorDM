@@ -35,7 +35,7 @@ class BadDiff_Backdoor():
     TARGET_HAT = "HAT"
     # TARGET_HAT = "HAT"
     TARGET_CAT = "CAT"
-    
+    TARGET_MICKEY = "MICKEY"
     TRIGGER_GAP_X = TRIGGER_GAP_Y = 2
     
     TRIGGER_NONE = "NONE"
@@ -109,6 +109,11 @@ class BadDiff_Backdoor():
         img = BadDiff_Backdoor.__read_img(path)
         trig = self.__get_transform(channel=channel, image_size=image_size, vmin=vmin, vmax=vmax)(img)
         return BadDiff_Backdoor.__bg2grey(trig=trig, vmin=vmin, vmax=vmax)
+    
+    def __get_img_target_mic(self, path: Union[str, os.PathLike], image_size: int, channel: int, vmin: Union[float, int], vmax: Union[float, int]):
+        img = BadDiff_Backdoor.__read_img(path)
+        trig = self.__get_transform(channel=channel, image_size=image_size, vmin=vmin, vmax=vmax)(img)
+        return trig
     
     def __get_img_trigger(self, path: Union[str, os.PathLike], image_size: int, channel: int, trigger_sz: int, vmin: Union[float, int], vmax: Union[float, int], x: int=None, y: int=None):
         # Padding of Left & Top
@@ -286,11 +291,12 @@ class BadDiff_Backdoor():
             trans = self.__get_transform(channel=channel, image_size=image_size, vmin=vmin, vmax=vmax)
             ds = FashionMNIST(root=self.__root, train=True, download=True, transform=trans)
             return BadDiff_Backdoor.__bg2grey(trig=ds[0][0], vmin=vmin, vmax=vmax)
-
         elif type == BadDiff_Backdoor.TARGET_HAT:
             return self.__get_img_target(path="./utils/pixel_target/fedora-hat.png", channel=channel, image_size=image_size, vmin=vmin, vmax=vmax)
         elif type == BadDiff_Backdoor.TARGET_CAT:
             return self.__get_img_target(path=BadDiff_Backdoor.CAT_IMG, channel=channel, image_size=image_size, vmin=vmin, vmax=vmax)
+        elif type == BadDiff_Backdoor.TARGET_MICKEY:
+            return self.__get_img_target_mic(path="./utils/pixel_target/mickey.png", channel=channel, image_size=image_size, vmin=vmin, vmax=vmax)
         else:
             raise NotImplementedError(f"Target type {type} isn't found")
         

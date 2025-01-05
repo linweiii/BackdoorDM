@@ -12,7 +12,7 @@ sys.path.append('../../../')
 sys.path.append(os.getcwd())
 from attack.uncond_gen.baddiff_backdoor import BadDiff_Backdoor
 from utils.utils import *
-from utils.uncond_dataset import DatasetLoader, ImagePathDataset
+from utils.uncond_dataset import DatasetLoader
 from utils.load import init_uncond_train, get_uncond_data_loader
 from loss import trojdiff_loss, trojdiff_loss_out
 from PIL import Image
@@ -36,7 +36,7 @@ DEFAULT_LEARNING_RATE_256: float = 8e-5
 DEFAULT_CLEAN_RATE: float = 1.0
 DEFAULT_POISON_RATE: float = 0.1
 DEFAULT_TRIGGER: str = BadDiff_Backdoor.TRIGGER_BOX_14
-DEFAULT_TARGET: str = BadDiff_Backdoor.TARGET_HAT
+DEFAULT_TARGET: str = BadDiff_Backdoor.TARGET_MICKEY
 DEFAULT_GPU = '0, 1'
 DEFAULT_CKPT: str = None
 # DEFAULT_SAVE_IMAGE_EPOCHS: int = 20
@@ -55,7 +55,7 @@ def parse_args():
 
     parser.add_argument('--project', '-pj', type=str, help='Project name')
     parser.add_argument('--mode', '-m', type=str, help='Train or test the model', choices=[MODE_TRAIN, MODE_RESUME])
-    parser.add_argument('--dataset', '-ds', type=str, help='Training dataset', choices=[DatasetLoader.MNIST, DatasetLoader.CIFAR10, DatasetLoader.CELEBA, DatasetLoader.CELEBA_HQ, DatasetLoader.CELEBA_HQ_LATENT_PR05, DatasetLoader.CELEBA_HQ_LATENT])
+    parser.add_argument('--dataset', '-ds', type=str, help='Training dataset', choices=[DatasetLoader.CIFAR10, DatasetLoader.CELEBA_ATTR])
     parser.add_argument('--sched', '-sc', type=str, help='Noise scheduler', choices=["DDPM-SCHED", "DDIM-SCHED", "DPM_SOLVER_PP_O1-SCHED", "DPM_SOLVER_O1-SCHED", "DPM_SOLVER_PP_O2-SCHED", "DPM_SOLVER_O2-SCHED", "DPM_SOLVER_PP_O3-SCHED", "DPM_SOLVER_O3-SCHED", "UNIPC-SCHED", "PNDM-SCHED", "DEIS-SCHED", "HEUN-SCHED", "LMSD-SCHED", "SCORE-SDE-VE-SCHED", "EDM-VE-SDE-SCHED", "EDM-VE-ODE-SCHED"])
     # parser.add_argument('--ddim_eta', '-det', type=float, help=f'Randomness hyperparameter \eta of DDIM, range: [0, 1], default: {DEFAULT_DDIM_ETA}')
     # parser.add_argument('--infer_steps', '-is', type=int, help='Number of inference steps')
@@ -77,7 +77,7 @@ def parse_args():
     parser.add_argument('--patch_size', type=int, default=3)
     
     parser.add_argument('--attack_mode', type=str, default='d2d-out')
-    parser.add_argument('--targetset', type=str, default="MNIST")
+    parser.add_argument('--targetset', type=str, default=DatasetLoader.MNIST)
     parser.add_argument('--target_img', type=str, default='./utils/pixel_target/mickey.png')
     
     parser.add_argument('--gpu', '-g', type=str, help=f"GPU usage, default for train/resume: {DEFAULT_GPU}")
@@ -104,11 +104,12 @@ def parse_args():
     parser.add_argument('--data_ckpt_path', type=str, default=None)
     parser.add_argument('--load_ckpt', type=bool, default=False) # True when resume
     
+    parser.add_argument('--seed', type=int, default=35)
     # sample
-    parser.add_argument('--img_num_test', type=int, default=16) 
-    parser.add_argument('--infer_steps', '-is', type=int, default=1000)
-    parser.add_argument("--sample_type",type=str, default="ddpm_noisy",help="sampling approach (ddim_noisy or ddpm_noisy)")
-    parser.add_argument("--skip_type", type=str, default="uniform", help="skip according to (uniform or quadratic)")
+    # parser.add_argument('--img_num_test', type=int, default=16) 
+    # parser.add_argument('--infer_steps', '-is', type=int, default=1000)
+    # parser.add_argument("--sample_type",type=str, default="ddpm_noisy",help="sampling approach (ddim_noisy or ddpm_noisy)")
+    # parser.add_argument("--skip_type", type=str, default="uniform", help="skip according to (uniform or quadratic)")
     
     args = parser.parse_args()
     for key in vars(args):
@@ -121,7 +122,6 @@ def parse_args():
     return final_args
 
 def setup():
-    set_random_seeds()
     config_file: str = "config.json"
     
     args: argparse.Namespace = parse_args()
@@ -160,14 +160,14 @@ def setup():
         
     # Determine gradient accumulation & Learning Rate
     bs = 0
-    if args.dataset in [DatasetLoader.CIFAR10, DatasetLoader.MNIST, DatasetLoader.CELEBA_HQ_LATENT_PR05, DatasetLoader.CELEBA_HQ_LATENT]:
+    if args.dataset in [DatasetLoader.CIFAR10]:
         bs = args.batch_32
         if args.learning_rate == None:
             if args.ckpt == None:
                 args.learning_rate = args.learning_rate_32_scratch
             else:
                 args.learning_rate = DEFAULT_LEARNING_RATE_32
-    elif args.dataset in [DatasetLoader.CELEBA, DatasetLoader.CELEBA_HQ, DatasetLoader.LSUN_CHURCH, DatasetLoader.LSUN_BEDROOM]:
+    elif args.dataset in [DatasetLoader.CELEBA_ATTR]:
         bs = args.batch_256
         if args.learning_rate == None:
             if args.ckpt == None:
@@ -175,7 +175,7 @@ def setup():
             else:
                 args.learning_rate = DEFAULT_LEARNING_RATE_256
     else:
-        raise NotImplementedError()
+        raise NotImplementedError("Dataset Not supported.")
     
     if args.attack_mode == 'd2d-out':
         if not hasattr(args, 'targetset') or args.targetset == None:
@@ -225,9 +225,9 @@ def save_checkpoint(config, accelerator: Accelerator, pipeline, cur_epoch: int, 
     pipeline.save_pretrained(config.result_dir)
         
         
-def get_target_loader(config, org_size):
+def get_target_loader(config, org_size, logger):
     ds_root = os.path.join(config.dataset_path)
-    target_dsl = DatasetLoader(root=ds_root, name=config.targetset, batch_size=int(config.batch * 0.5)).set_poison(trigger_type=config.trigger, target_type=config.target, clean_rate=config.clean_rate, poison_rate=config.poison_rate).get_targetset(org_size=org_size)
+    target_dsl = DatasetLoader(root=ds_root, name=config.targetset, label=config.target_label, batch_size=int(config.batch * 0.5), logger=logger).set_poison(trigger_type=config.trigger, target_type=config.target, clean_rate=config.clean_rate, poison_rate=config.poison_rate).get_targetset(org_size=org_size)
     targetset_loader = target_dsl.get_dataloader()
     
     def cycle(dl):
@@ -291,6 +291,7 @@ def train_loop(config, accelerator, repo, model, get_pipeline, noise_sched, opti
                 progress_bar.update(1)
                 logs = {"loss": loss.detach().item(), "lr": lr_sched.get_last_lr()[0], "epoch": epoch, "step": cur_step}
                 progress_bar.set_postfix(**logs)
+                logger.info(str(logs))
                 accelerator.log(logs, step=cur_step)
                 cur_step += 1
             
@@ -319,7 +320,7 @@ def train_loop_out(config, accelerator, repo, model, get_pipeline, noise_sched, 
         first_batch = next(iter(loader))
         org_size = first_batch['image'].shape[-1]
         miu = get_target_img(config.miu_path, org_size)
-        target_loader = get_target_loader(config, org_size)
+        target_loader = get_target_loader(config, org_size, logger)
         
         for epoch in range(int(start_epoch), int(config.epoch)):
             progress_bar = tqdm(total=len(loader), disable=not accelerator.is_local_main_process)
@@ -350,6 +351,7 @@ def train_loop_out(config, accelerator, repo, model, get_pipeline, noise_sched, 
                 progress_bar.update(1)
                 logs = {"loss": loss.detach().item(), "lr": lr_sched.get_last_lr()[0], "epoch": epoch, "step": cur_step}
                 progress_bar.set_postfix(**logs)
+                logger.info(str(logs))
                 accelerator.log(logs, step=cur_step)
                 cur_step += 1
             
@@ -410,6 +412,7 @@ def train_loop_d2i(config, accelerator, repo, model, get_pipeline, noise_sched, 
                 progress_bar.update(1)
                 logs = {"loss": loss.detach().item(), "lr": lr_sched.get_last_lr()[0], "epoch": epoch, "step": cur_step}
                 progress_bar.set_postfix(**logs)
+                logger.info(str(logs))
                 accelerator.log(logs, step=cur_step)
                 cur_step += 1
             
@@ -431,6 +434,7 @@ def train_loop_d2i(config, accelerator, repo, model, get_pipeline, noise_sched, 
 
 if __name__ == "__main__":
     config, logger = setup()
+    set_random_seeds(config.seed)
     dsl, logger = get_uncond_data_loader(config, logger)
     accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=config, dataset_loader=dsl)
     if config.mode == MODE_TRAIN or config.mode == MODE_RESUME:

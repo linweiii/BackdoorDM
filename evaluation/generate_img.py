@@ -49,7 +49,7 @@ def batch_sampling_save(sample_n: int, pipeline, path: Union[str, os.PathLike], 
     return None
 
 # generate images by batch
-def generate_images_uncond(args, dataset_loader, sample_n, folder_name):
+def generate_images_uncond(args, dataset_loader, sample_n, folder_name, mode='both'):
     # if hasattr(args, 'sde_type'):
     #     accelerator, repo, model, vae, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=args, dataset_loader=dsl)
     #     pipeline = get_pipeline(accelerator, model, vae, noise_sched)
@@ -59,19 +59,20 @@ def generate_images_uncond(args, dataset_loader, sample_n, folder_name):
     if args.backdoor_method == "trojdiff":
         accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(args, dataset_loader)
         pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
-        miu = get_target_img(args.miu_path, 32)
-        sample_trojdiff(args, pipeline, noise_sched, miu)
+        miu = get_target_img(args.miu_path, dataset_loader.image_size)
+        sample_trojdiff(args, pipeline, noise_sched, miu, mode, folder_name)
         
         return
     
     pipeline = load_uncond_backdoored_model(args, dataset_loader)
-     # Random Number Generator
+    # Random Number Generator
     rng = torch.Generator()
     folder_path_ls = [args.result_dir, folder_name]
     clean_folder = "clean"
     backdoor_folder = "backdoor"
-    clean_path = os.path.join(*folder_path_ls, clean_folder)          # 生成存储干净图像的目录
-    backdoor_path = os.path.join(*folder_path_ls, backdoor_folder)    # 生成存储后门图像的目录
+    clean_path = os.path.join(*folder_path_ls, clean_folder)          # generated clean image path
+    backdoor_path = os.path.join(*folder_path_ls, backdoor_folder)    # generated target image path
+    folder_path = os.path.join(*folder_path_ls)
     init = torch.randn(
                 (sample_n, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size),
                 # generator=torch.manual_seed(config.seed),
@@ -106,8 +107,13 @@ def generate_images_uncond(args, dataset_loader, sample_n, folder_name):
     else:
         bd_init = init + dataset_loader.trigger.unsqueeze(0)
     # Sampling
-    batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=clean_path, init=init, max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
-    batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=backdoor_path, init=bd_init,  max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
+    if mode == 'clean':
+        batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=folder_path, init=init, max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
+    elif mode == 'backdoor':
+        batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=folder_path, init=bd_init,  max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
+    else:
+        batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=clean_path, init=init, max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
+        batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=backdoor_path, init=bd_init,  max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
     
 # generate image grid
 def sampling_image_grid(config, file_name: Union[int, str], pipeline):
@@ -215,8 +221,8 @@ if __name__ == '__main__':
     parser.add_argument('--uncond', type=bool, default=True)
     parser.add_argument('--base_config', type=str, default='configs/eval_config.yaml')
     parser.add_argument('--metric', type=str, choices=['FID', 'ASR', 'CLIP_p', 'CLIP_c', 'LPIPS', 'ACCASR'], default='ACCASR')
-    parser.add_argument('--backdoor_method', type=str, choices=['benign', 'baddiffusion', 'trojdiff', 'villan_diffusion', 'eviledit', 'ti', 'db', 'ra', 'badt2i', 'lora'], default='trojdiff')
-    parser.add_argument('--backdoored_model_path', type=str, default=None)
+    parser.add_argument('--backdoor_method', type=str, choices=['benign', 'baddiffusion', 'trojdiff', 'villan_diffusion', 'eviledit', 'ti', 'db', 'ra', 'badt2i', 'lora'], default='baddiffusion')
+    parser.add_argument('--backdoored_model_path', type=str, default='./result/test_baddiffusion/defenses/terd_model')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--bd_config', type=str, default=None)
     parser.add_argument('--val_data', type=str, default=None)
@@ -237,9 +243,12 @@ if __name__ == '__main__':
     
     if cmd_args.uncond:
         args = base_args_uncond(cmd_args)
+        logger = set_logging(f'{args.backdoored_model_path}/sample_logs/')
+        logger.info('######Generating images#####')
         setattr(args, 'mode', 'sampling') # change to sampling mode
-        print(args)
-        dsl = get_uncond_data_loader(config=args)
+        device = args.device_ids[0]
+        setattr(args, 'device', device)
+        dsl = get_uncond_data_loader(config=args, logger=logger)
         # logger = set_logging(cmd_args.result_dir)
         folder_name = 'sampling'
         generate_images_uncond(args, dsl, args.img_num_test, folder_name)

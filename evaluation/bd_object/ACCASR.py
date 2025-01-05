@@ -3,10 +3,16 @@ sys.path.append('../')
 sys.path.append('../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
-from utils.load import load_t2i_backdoored_model
+from utils.load import load_t2i_backdoored_model, get_uncond_data_loader
 from utils.prompts import get_prompt_pairs
+from utils.uncond_dataset import ImageDataseteval
+from classifier_models.preact_resnet import PreActResNet18
+from classifier_models.resnet import ResNet18
+from classifier_models.net_minist import NetC_MNIST
+from generate_img import generate_images_uncond
 from transformers import ViTImageProcessor, ViTForImageClassification
 import torch
+from torch.utils.data import DataLoader
 from tqdm import trange, tqdm
 from collections import Counter
 import logging
@@ -80,3 +86,49 @@ def clean_bd_pair_ACCASR(args):
         logging.info(f'Final ACC: {count_acc/count_sum : .2f}')
         write_result(args.record_path, args.metric+f'_acc{len(clean_prompts_list)}',args.backdoor_method, 'all', 'all', count_sum, count_acc/count_sum)
         write_result(args.record_path, args.metric+f'_asr{len(clean_prompts_list)}',args.backdoor_method, 'all', 'all', count_sum, count_asr/count_sum)
+        
+# given a dataset, calculate ASR for uncond generated image
+def uncond_ASR(args, logger, data_size=100, batch_size=64):
+    if not args.backdoor_method == 'trojdiff':
+        raise NotImplementedError("ASR ONLY Implemented for TrojDiff D2D!")
+    if args.attack_mode == 'd2i':
+        raise NotImplementedError("ASR ONLY Implemented for TrojDiff D2D!")
+    
+    if args.attack_mode == 'in-d2d':
+        if args.dataset == 'CIFAR10':
+            model = PreActResNet18(num_classes=10).to(args.device)
+            dataset = 'CIFAR10'
+            ckpt_path = './classifier_models/preact_resnet18_cifar10.pth'
+        elif args.dataset == 'CELEBA_ATTR':
+            model = ResNet18().to(args.device)
+            dataset = 'CELBA_ATTR'
+            ckpt_path = './classifier_models/resnet18_celeba.pth'
+    elif args.attack_mode == 'out-d2d':
+        if args.targetset == 'MNIST':
+            model = NetC_MNIST().to(args.device)
+            dataset = 'MNIST'
+            ckpt_path = './classifier_models/net_mnist.pth'
+    
+    if os.path.exists(ckpt_path):
+        state_dict = torch.load(ckpt_path)
+        model.load_state_dict(state_dict["netC"])
+    
+    backdoor_path = args.result_dir + f'/bd_generated_{str(args.dataset)}_{str(args.img_num_FID)}'
+    dsl = get_uncond_data_loader(config=args, logger=logger)
+    if not os.path.exists(backdoor_path):
+        generate_images_uncond(args, dsl, args.img_num_FID, f'bd_generated_{str(args.dataset)}_{str(args.img_num_FID)}', 'backdoor')
+    generated_data = ImageDataseteval(backdoor_path, data_size, batch_size, dataset)
+    generated_loader = DataLoader(generated_data, batch_size=batch_size, shuffle=False)
+    
+    model.eval()
+    correct = 0
+    with torch.no_grad():
+        for images, _ in tqdm(generated_loader, ncols=80, desc='Eval_asr'):
+            outputs = model(images)
+            # logits = outputs.logits
+            preds = torch.argmax(outputs, dim=-1)
+            correct += torch.sum(preds == args.target_label).item()
+            total += len(images)
+    asr = 100 * correct / total
+    logger.info(f"ASR: {asr * 100:.2f}%")
+    write_result(args.record_path, 'MSE', args.backdoor_method, args.trigger, args.target, args.img_num_FID, asr)

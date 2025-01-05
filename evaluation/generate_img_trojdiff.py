@@ -37,37 +37,50 @@ def batch_sampling_save(sample_n: int, pipeline, path: Union[str, os.PathLike], 
                     batch_size=batch_sz, 
                     generator=rng,
                     init=init[i],
+                    save_every_step=True,
                     output_type=None
                 )
-        # sample_imgs_ls.append(pipline_res.images)
+        movie = pipline_res.movie
+        # steps = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+        # for step in steps:
+        #     img = movie[step]
+        #     img = np.squeeze((img * 255).round().astype("uint8"))
+        #     img = Image.fromarray(img)
+        #     img.save(f"step_{step}.png")
         save_imgs(imgs=pipline_res.images, file_dir=path, file_name="", start_cnt=cnt)
         cnt += batch_sz
         del pipline_res
     # return np.concatenate(sample_imgs_ls)
     return None
 
-def sample_trojdiff(args, pipeline, noise_sched, miu):
-    folder_name = 'sample'
-    sample_benign(args, pipeline, args.img_num_test, folder_name=folder_name)
-    sample_bd(args, pipeline, noise_sched, args.img_num_test, miu, folder_name=folder_name)
-
-def sample_benign(args, pipeline, sample_n, folder_name):
+def sample_trojdiff(args, pipeline, noise_sched, miu, mode, folder_name):
     folder_path_ls = [args.result_dir, folder_name]
     clean_folder = "clean"
     clean_path = os.path.join(*folder_path_ls, clean_folder)
+    backdoor_folder = "backdoor"
+    backdoor_path = os.path.join(*folder_path_ls, backdoor_folder)
+    save_path = os.path.join(*folder_path_ls)
+    if mode == 'clean':
+        sample_benign(args, pipeline, args.img_num_test, save_path)
+    elif mode == 'backdoor':
+        sample_bd(args, pipeline, noise_sched, args.img_num_test, miu, save_path)
+    else:
+        sample_benign(args, pipeline, args.img_num_test, clean_path)
+        sample_bd(args, pipeline, noise_sched, args.img_num_test, miu, backdoor_path)
+
+def sample_benign(args, pipeline, sample_n, save_path):
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
     rng = torch.Generator()
     init = torch.randn(
                 (sample_n, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size),
                 # generator=torch.manual_seed(config.seed),
             )
-    batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=clean_path, init=init, max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
+    batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=save_path, init=init, max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
     
-def sample_bd(args, pipeline, noise_sched, sample_n, miu, folder_name):
-    folder_path_ls = [args.result_dir, folder_name]
-    bd_folder = "backdoor"
-    bd_path = os.path.join(*folder_path_ls, bd_folder)
-    if not os.path.exists(bd_path):
-        os.makedirs(bd_path)
+def sample_bd(args, pipeline, noise_sched, sample_n, miu, save_path):
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
     max_batch_n = args.eval_max_batch
     # if sample_n > max_batch_n:
     #         replica = sample_n // max_batch_n
@@ -117,7 +130,7 @@ def sample_bd(args, pipeline, noise_sched, sample_n, miu, folder_name):
         images = [Image.fromarray(image.transpose(1, 2, 0)) for image in images]
         # images = [Image.fromarray(image) for image in np.squeeze((images * 255).round().astype("uint8"))]
         for i, img in enumerate(tqdm(images)):
-            img.save(os.path.join(bd_path, f"{cnt + i}.png"))
+            img.save(os.path.join(save_path, f"{cnt + i}.png"))
         del images
         cnt += bs
         

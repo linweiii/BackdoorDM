@@ -106,6 +106,8 @@ def parse_args():
     parser.add_argument('--data_ckpt_path', type=str, default=None)
     parser.add_argument('--load_ckpt', type=bool, default=False) # True when resume
     
+    parser.add_argument('--seed', type=int, default=35)
+    
     args = parser.parse_args()
     for key in vars(args):
         if getattr(args, key) is not None:
@@ -276,6 +278,7 @@ def train_loop(config, accelerator: Accelerator, repo, model: nn.Module, get_pip
                 progress_bar.update(1)
                 logs = {"loss": loss.detach().item(), "lr": lr_sched.get_last_lr()[0], "epoch": epoch, "step": cur_step}
                 progress_bar.set_postfix(**logs)
+                logger.info(str(logs))
                 accelerator.log(logs, step=cur_step)
                 cur_step += 1
 
@@ -304,8 +307,8 @@ def train_loop(config, accelerator: Accelerator, repo, model: nn.Module, get_pip
     return get_pipeline(accelerator, model, vae, noise_sched)
 
 if __name__ == '__main__':
-    set_random_seeds()
     config, logger = setup()
+    set_random_seeds(config.seed)
     dsl = get_uncond_data_loader(config, logger)
     accelerator, repo, model, vae, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=config, dataset_loader=dsl, mixed_precision=config.mixed_precision)
     if config.mode == MODE_TRAIN or config.mode == MODE_RESUME:

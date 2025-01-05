@@ -9,7 +9,7 @@ from typing import Union
 from PIL import Image
 from tqdm import tqdm
 import json
-import argparse
+import torchvision.transforms as T
 
 def set_random_seeds(seed_value=678):
     np.random.seed(seed_value)
@@ -45,13 +45,43 @@ def set_logging(log_dir):
     logger.addHandler(file_handler)
     return logger
 
-def base_args_uncond(cmd_args):    # only used in sampling or measure for uncond gen
-    setattr(cmd_args, "bd_config", os.path.join(cmd_args.backdoored_model_path, 'config.json'))  # read original config
+def base_args_uncond(cmd_args):    # read old settings, used for sampling
+    config_path = os.path.join(cmd_args.backdoored_model_path, 'config.json')
+    # print(os.path.dirname(os.path.dirname(cmd_args.backdoored_model_path)))
+    if not os.path.exists(config_path):
+        config_path = os.path.join(os.path.dirname(os.path.dirname(cmd_args.backdoored_model_path)), 'config.json') # check parent dir for defense
+        if not os.path.exists(config_path):
+            raise FileNotFoundError()
+        
+    setattr(cmd_args, "bd_config", config_path)
     with open(cmd_args.bd_config, "r") as f:
         args_data = json.load(f)                                                               
     for key, value in args_data.items():
         if value != None:
-            setattr(cmd_args, key, value)                                                        # add to current config
+            setattr(cmd_args, key, value)                                                        
+    
+    setattr(cmd_args, "result_dir", cmd_args.backdoored_model_path)
+    setattr(cmd_args, 'ckpt', cmd_args.backdoored_model_path)
+    # if not hasattr(cmd_args, 'sample_ep'):
+    #     cmd_args.sample_ep = None
+    
+    if not hasattr(cmd_args, 'ckpt_path'):
+        cmd_args.ckpt_path = os.path.join(cmd_args.result_dir, cmd_args.ckpt_dir)
+        cmd_args.data_ckpt_path = os.path.join(cmd_args.result_dir, cmd_args.data_ckpt_dir)
+        os.makedirs(cmd_args.ckpt_path, exist_ok=True)
+    
+    return cmd_args
+
+def base_args_uncond_v2(cmd_args): # current settings cover old settings used for defense
+    setattr(cmd_args, "bd_config", os.path.join(cmd_args.backdoored_model_path, 'config.json'))
+    with open(cmd_args.bd_config, "r") as f:
+        args_data = json.load(f)                                                               
+    for key, value in args_data.items():
+        if value == None or hasattr(cmd_args, key):
+            continue
+        else:
+            setattr(cmd_args, key, value)                                                        
+    
     setattr(cmd_args, "result_dir", cmd_args.backdoored_model_path)
     setattr(cmd_args, 'ckpt', cmd_args.backdoored_model_path)
     # if not hasattr(cmd_args, 'sample_ep'):
@@ -233,3 +263,22 @@ def make_grid(images, rows, cols):
     for i, image in enumerate(images):
         grid.paste(image, box=(i%cols*w, i//cols*h))
     return grid
+
+def get_target_img(file_path, org_size):
+    target_img = Image.open(file_path)
+    if target_img.mode == 'RGB':
+        channel_trans = T.Lambda(lambda x: x.convert("RGB"))
+    elif target_img.mode == 'L':
+        channel_trans = T.Grayscale(num_output_channels=1)
+    else:
+        logging.error('Not support this target image.')
+        raise NotImplementedError('Not support this target image.')
+    transform = T.Compose([channel_trans,
+                T.Resize([org_size, org_size]), 
+                T.ToTensor(),
+                T.Lambda(lambda x: normalize(vmin_in=0, vmax_in=1, vmin_out=-1.0, vmax_out=1.0, x=x)),
+                # transforms.Normalize([0.5], [0.5]),
+                ])
+    target_img = transform(target_img)
+    
+    return target_img
