@@ -545,7 +545,7 @@ def mitigate(removal=False):
     final_args = argparse.Namespace(**args_config)
     setattr(final_args, 'ckpt', cmd_args.backdoored_model_path)
     logger = set_logging(f'{final_args.ckpt}/defenses/{final_args.defense_result}/logs/')
-    args = base_args_uncond_v2(final_args)
+    args = base_args_uncond_defense(final_args)
     set_random_seeds(args.seed)
     args.poison_rate = 0
     dsl = get_uncond_data_loader(args, logger, 'FLEX')

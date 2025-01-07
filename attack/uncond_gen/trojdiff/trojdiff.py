@@ -2,7 +2,7 @@ import argparse
 import os, sys
 import json
 import traceback
-from typing import Callable, Dict, List, Tuple, Union
+from typing import  Dict
 import torchvision.transforms as T
 
 import torch
@@ -16,9 +16,7 @@ from utils.uncond_dataset import DatasetLoader
 from utils.load import init_uncond_train, get_uncond_data_loader
 from loss import trojdiff_loss, trojdiff_loss_out
 from PIL import Image
-from torch import nn
 from accelerate import Accelerator
-# from diffusers.hub_utils import init_git_repo, push_to_hub
 from tqdm.auto import tqdm
 from sample import sample
 
@@ -27,66 +25,40 @@ os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 MODE_TRAIN: str = 'train'
 MODE_RESUME: str = 'resume'
 
-DEFAULT_PROJECT: str = "Default"
 DEFAULT_BATCH: int = 512
 DEFAULT_EPOCH: int = 50
 DEFAULT_LEARNING_RATE: float = None
 DEFAULT_LEARNING_RATE_32: float = 2e-4
 DEFAULT_LEARNING_RATE_256: float = 8e-5
-DEFAULT_CLEAN_RATE: float = 1.0
-DEFAULT_POISON_RATE: float = 0.1
 DEFAULT_TRIGGER: str = BadDiff_Backdoor.TRIGGER_BOX_14
 DEFAULT_TARGET: str = BadDiff_Backdoor.TARGET_MICKEY
 DEFAULT_GPU = '0, 1'
 DEFAULT_CKPT: str = None
-# DEFAULT_SAVE_IMAGE_EPOCHS: int = 20
 DEFAULT_SAVE_MODEL_EPOCHS: int = 5
-# DEFAULT_SAMPLE_EPOCH: int = None
-DEFAULT_RESULT: int = '.'
-
-def load_config_from_yaml():
-    with open('./attack/uncond_gen/configs/trojdiff.yaml', 'r') as f:
-        config = yaml.safe_load(f) or {}
-        return config
+DEFAULT_RESULT: int = 'trojdiff01'
     
 def parse_args():
-    args_config = load_config_from_yaml()
+    method_name = 'trojdiff'
     parser = argparse.ArgumentParser(description=globals()['__doc__'])
 
     parser.add_argument('--project', '-pj', type=str, help='Project name')
     parser.add_argument('--mode', '-m', type=str, help='Train or test the model', choices=[MODE_TRAIN, MODE_RESUME])
     parser.add_argument('--dataset', '-ds', type=str, help='Training dataset', choices=[DatasetLoader.CIFAR10, DatasetLoader.CELEBA_ATTR])
     parser.add_argument('--sched', '-sc', type=str, help='Noise scheduler', choices=["DDPM-SCHED", "DDIM-SCHED", "DPM_SOLVER_PP_O1-SCHED", "DPM_SOLVER_O1-SCHED", "DPM_SOLVER_PP_O2-SCHED", "DPM_SOLVER_O2-SCHED", "DPM_SOLVER_PP_O3-SCHED", "DPM_SOLVER_O3-SCHED", "UNIPC-SCHED", "PNDM-SCHED", "DEIS-SCHED", "HEUN-SCHED", "LMSD-SCHED", "SCORE-SDE-VE-SCHED", "EDM-VE-SDE-SCHED", "EDM-VE-ODE-SCHED"])
-    # parser.add_argument('--ddim_eta', '-det', type=float, help=f'Randomness hyperparameter \eta of DDIM, range: [0, 1], default: {DEFAULT_DDIM_ETA}')
-    # parser.add_argument('--infer_steps', '-is', type=int, help='Number of inference steps')
-    # parser.add_argument('--infer_start', '-ist', type=float, help='Inference start timestep')
-    # parser.add_argument('--inpaint_mul', '-im', type=float, help='Inpainting initial sampler multiplier')
     parser.add_argument('--batch', '-b', type=int, help=f"Batch size, default for train: {DEFAULT_BATCH}")
     parser.add_argument('--epoch', '-e', type=int, help=f"Epoch num, default for train: {DEFAULT_EPOCH}")
     parser.add_argument('--learning_rate', '-lr', type=float, help=f"Learning rate, default for 32 * 32 image: {DEFAULT_LEARNING_RATE_32}, default for larger images: {DEFAULT_LEARNING_RATE_256}")
-    parser.add_argument('--clean_rate', '-cr', type=float, help=f"Clean rate, default for train: {DEFAULT_CLEAN_RATE}")
-    parser.add_argument('--poison_rate', '-pr', type=float, default=0, help=f"Poison rate, default for train: {DEFAULT_POISON_RATE}")
-    parser.add_argument('--trigger', '-tr', type=str, help=f"Trigger pattern, default for train: {DEFAULT_TRIGGER}")
-    parser.add_argument('--target', '-ta', type=str, help=f"Target pattern, default for train: {DEFAULT_TARGET}")
+    
     # attack
     parser.add_argument('--cond_prob', type=float, default=1.0)
-    parser.add_argument('--gamma', type=float, default=None)
-    parser.add_argument('--target_label', type=int, default=7)
-    parser.add_argument('--miu_path', type=str, default='./utils/pixel_target/hello_kitty.png')
+    # parser.add_argument('--gamma', type=float, default=0.6)
     parser.add_argument('--trigger_type', type=str, default='blend')
-    parser.add_argument('--patch_size', type=int, default=3)
     
     parser.add_argument('--attack_mode', type=str, default='d2d-out')
-    parser.add_argument('--targetset', type=str, default=DatasetLoader.MNIST)
-    parser.add_argument('--target_img', type=str, default='./utils/pixel_target/mickey.png')
     
     parser.add_argument('--gpu', '-g', type=str, help=f"GPU usage, default for train/resume: {DEFAULT_GPU}")
     parser.add_argument('--ckpt', '-c', type=str, help=f"Load from the checkpoint, default: {DEFAULT_CKPT}")
-    # parser.add_argument('--overwrite', '-o', action='store_true', help=f"Overwrite the existed training result or not, default for train/resume: {DEFAULT_CKPT}")
-    # parser.add_argument('--R_trigger_only', '-trigonly', action='store_true', help="Making poisoned image without clean images")
-    # parser.add_argument('--save_image_epochs', '-sie', type=int, help=f"Save sampled image per epochs, default: {DEFAULT_SAVE_IMAGE_EPOCHS}")
     parser.add_argument('--save_model_epochs', '-sme', type=int, help=f"Save model per epochs, default: {DEFAULT_SAVE_MODEL_EPOCHS}")
-    # parser.add_argument('--sample_ep', '-se', type=int, help=f"Select i-th epoch to sample/measure, if no specify, use the lastest saved model, default: {DEFAULT_SAMPLE_EPOCH}")
     parser.add_argument('--result', '-res', type=str, help=f"Output file path, default: {DEFAULT_RESULT}")
     
     parser.add_argument('--batch_32', type=int, default=128)
@@ -99,27 +71,18 @@ def parse_args():
     parser.add_argument('--dataset_path', type=str, default='datasets')
     parser.add_argument('--ckpt_dir', type=str, default='ckpt')
     parser.add_argument('--data_ckpt_dir', type=str, default='data.ckpt')
-    parser.add_argument('--ep_model_dir', type=str, default='epochs')
     parser.add_argument('--ckpt_path', type=str, default=None)
     parser.add_argument('--data_ckpt_path', type=str, default=None)
     parser.add_argument('--load_ckpt', type=bool, default=False) # True when resume
     
     parser.add_argument('--seed', type=int, default=35)
-    # sample
-    # parser.add_argument('--img_num_test', type=int, default=16) 
-    # parser.add_argument('--infer_steps', '-is', type=int, default=1000)
-    # parser.add_argument("--sample_type",type=str, default="ddpm_noisy",help="sampling approach (ddim_noisy or ddpm_noisy)")
-    # parser.add_argument("--skip_type", type=str, default="uniform", help="skip according to (uniform or quadratic)")
     
     args = parser.parse_args()
-    for key in vars(args):
-        if getattr(args, key) is not None:
-            args_config[key] = getattr(args, key)
+    args.backdoor_method = method_name
+    args = base_args_uncond_v1(args)
+    print(args)
     
-    final_args = argparse.Namespace(**args_config)
-    print(final_args)
-    
-    return final_args
+    return args
 
 def setup():
     config_file: str = "config.json"
@@ -150,13 +113,6 @@ def setup():
 
     logger.info(f"PyTorch detected number of availabel devices: {torch.cuda.device_count()}")
     setattr(args, "device_ids", [int(i) for i in range(len(args.gpu.split(',')))])
-    
-    # sample_ep options
-    # if hasattr(args, 'sample_ep') and isinstance(args.sample_ep, int):
-    #     if args.sample_ep < 0:
-    #         args.sample_ep = None
-    # else:
-    #     args.sample_ep = None
         
     # Determine gradient accumulation & Learning Rate
     bs = 0
@@ -215,9 +171,6 @@ def setup():
     logger.info(f"Argument Final: {args.__dict__}")
     return args
 
-
-def get_ep_model_path(config, dir: Union[str, os.PathLike], epoch: int):
-    return os.path.join(dir, config.ep_model_dir, f"ep{epoch}")
 
 def save_checkpoint(config, accelerator: Accelerator, pipeline, cur_epoch: int, cur_step: int, repo=None, commit_msg: str=None):
     accelerator.save_state(config.ckpt_path)   

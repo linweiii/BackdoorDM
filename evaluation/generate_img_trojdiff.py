@@ -91,19 +91,19 @@ def sample_bd(args, pipeline, noise_sched, sample_n, miu, save_path):
     init = torch.randn(
                 (sample_n, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size),
                 # generator=torch.manual_seed(config.seed),
-                device = args.device_ids[0]
+                device = args.device
             )
-    miu_ = torch.stack([miu.to(args.device_ids[0])] * sample_n)
+    miu_ = torch.stack([miu.to(args.device)] * sample_n)
     init = torch.split(init, max_batch_n)
     miu_ = torch.split(miu_, max_batch_n)
     batch_sizes = list(map(lambda x: len(x), init))
     model = pipeline.unet
     cnt = 0
-    alphas_cumprod = noise_sched.alphas_cumprod.to(args.device_ids[0])
-    betas = noise_sched.betas.to(args.device_ids[0])
-    alphas = noise_sched.alphas.to(args.device_ids[0])
+    alphas_cumprod = noise_sched.alphas_cumprod.to(args.device)
+    betas = noise_sched.betas.to(args.device)
+    alphas = noise_sched.alphas.to(args.device)
     k_t = torch.randn_like(betas)
-    alphas_cumprod_prev = torch.cat([torch.ones(1).to(args.device_ids[0]), alphas_cumprod[:-1]], dim=0)
+    alphas_cumprod_prev = torch.cat([torch.ones(1).to(args.device), alphas_cumprod[:-1]], dim=0)
     for ii in range(noise_sched.config.num_train_timesteps):
         tmp_sum = torch.sqrt(1. - alphas_cumprod[ii])
         tmp_alphas = torch.flip(alphas[:ii + 1], [0])
@@ -288,16 +288,16 @@ def get_target_img(file_path, org_size):
     
     return target_img
         
-if __name__ == '__main__':
-    cmd_args = parse_args()
-    args = base_args_uncond(cmd_args)
-    setattr(args, 'mode', 'sampling') # change to sampling mode
-    print(args)
-    dsl = get_uncond_data_loader(config=args)
-    set_logging(cmd_args.result_dir)
-    accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=args, dataset_loader=dsl)
-    pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
-    # first_batch = next(iter(dsl))
-    # org_size = first_batch['image'].shape[-1]
-    miu = get_target_img(args.miu_path, 32)
-    sample_trojdiff(args, pipeline, noise_sched, miu)
+# if __name__ == '__main__':
+#     cmd_args = parse_args()
+#     args = base_args_uncond(cmd_args)
+#     setattr(args, 'mode', 'sampling') # change to sampling mode
+#     print(args)
+#     dsl = get_uncond_data_loader(config=args)
+#     set_logging(cmd_args.result_dir)
+#     accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=args, dataset_loader=dsl)
+#     pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
+#     # first_batch = next(iter(dsl))
+#     # org_size = first_batch['image'].shape[-1]
+#     miu = get_target_img(args.miu_path, 32)
+#     sample_trojdiff(args, pipeline, noise_sched, miu)

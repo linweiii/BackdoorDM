@@ -3,7 +3,7 @@ sys.path.append('../')
 sys.path.append('../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
-from utils.load import load_t2i_backdoored_model, get_uncond_data_loader
+from utils.load import load_t2i_backdoored_model, get_uncond_data_loader, get_villan_dataset
 from utils.uncond_dataset import DatasetLoader
 from generate_img import generate_images_SD, generate_images_uncond
 from cleanfid import fid
@@ -13,7 +13,7 @@ from configs.bdmodel_path import get_bdmodel_dict
 import logging
 
 def FID(args, logger):
-    if args.uncond:
+    if args.backdoor_method in ['baddiffusion', 'trojdiff', 'villandiffusion']:
         dsl = get_uncond_data_loader(config=args, logger=logger)
         ds = dsl.get_dataset().shuffle()
         # benign_img = args.result_dir + f'/{str(args.dataset).replace('/', '_')}_{str(args.img_num_FID)}'
@@ -31,7 +31,10 @@ def FID(args, logger):
         logger.info(f'{args.backdoor_method} FID Score = {score}')
         write_result(args.record_path, 'FID',args.backdoor_method, args.trigger, args.target, args.img_num_FID, score)
     else:
-        dataset = load_dataset(args.val_data)['train'][:args.img_num_FID]
+        if args.backdoor_method == 'villandiffusion_cond':
+            dataset = get_villan_dataset(args)
+        else:
+            dataset = load_dataset(args.val_data)['train'][:args.img_num_FID]
         # benign_img = args.result_dir + f'/{str(args.val_data).replace('/', '_')}_{str(args.img_num_FID)}'
         benign_img = args.result_dir + f'/{str(args.val_data)}_{str(args.img_num_FID)}'
         if not os.path.exists(benign_img):

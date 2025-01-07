@@ -51,16 +51,7 @@ from utils.utils import *
 
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
-
-
-
-def load_config_from_yaml():
-    with open('./attack/t2i_gen/configs/villan_diffusion_cond.yaml', 'r') as f:
-        config = yaml.safe_load(f) or {}
-        return config
-
 def setup():
-    args_config = load_config_from_yaml()
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
     parser.add_argument(
         "--pretrained_model_name_or_path",
@@ -131,7 +122,6 @@ def setup():
     )
 
     # lora args
-    parser.add_argument("--use_lora", action="store_true", default=True, help="Whether to use Lora for parameter efficient tuning")
     parser.add_argument("--lora_r", type=int, default=4, help="Lora rank, only used if use_lora is True")
 
     parser.add_argument(
@@ -238,24 +228,6 @@ def setup():
         help="Poison rate, only work for backdoor",
     )
     parser.add_argument(
-        "--image_trigger", "-tr",
-        type=str,
-        default=Backdoor.TRIGGER_NONE,
-        help="Image backdoor trigger, only work for backdoor",
-    )
-    parser.add_argument(
-        "--caption_trigger", "-ctr",
-        type=str,
-        default=CaptionBackdoor.TRIGGER_LATTE_COFFEE,
-        help="Caption backdoor trigger, only work for backdoor",
-    )
-    parser.add_argument(
-        "--target", "-tg",
-        type=str,
-        default=Backdoor.TARGET_CAT,
-        help="Target image, only work for backdoor",
-    )
-    parser.add_argument(
         "--split", "-spl",
         type=str,
         default="[:90%]",
@@ -304,6 +276,7 @@ def setup():
             " https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices"
         ),
     )
+    parser.add_argument("--mixed_precision", type=str, default='fp16', help="For distributed training: local_rank")
     parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
     parser.add_argument(
         "--enable_xformers_memory_efficient_attention", action="store_true", help="Whether or not to use xformers."
@@ -330,34 +303,34 @@ def setup():
         if args.class_prompt is not None:
             warnings.warn("You need not use --class_prompt without --with_prior_preservation.")
 
-    os.environ.setdefault("CUDA_VISIBLE_DEVICES", args.gpu)
-    for key in vars(args):
-        if getattr(args, key) is not None:
-            args_config[key] = getattr(args, key)
+    with open(args.bd_config, 'r') as file:
+        config = yaml.safe_load(file)
+    if getattr(args, 'backdoors', None) is None:
+        args.backdoors = config[args.backdoor_method]['backdoors']
+    for key, value in config[args.backdoor_method]['backdoors'].items():
+        setattr(args, key, value)
     
-    config = argparse.Namespace(**args_config)
+    setattr(args, "result_dir", os.path.join('result', args.result))
     
-    setattr(config, "result_dir", os.path.join('result', args.result))
+    if not os.path.exists(args.result_dir):
+        os.makedirs(args.result_dir, exist_ok=True)
     
-    if not os.path.exists(config.result_dir):
-        os.makedirs(config.result_dir, exist_ok=True)
-    
-    if os.path.isfile(os.path.join(config.result_dir, "pytorch_lora_weights.bin")):
-        if not config.overwrite:
+    if os.path.isfile(os.path.join(args.result_dir, "pytorch_lora_weights.bin")):
+        if not args.overwrite:
             print("Skipped Experiment because file already exists")
             exit()
         else:
             print("Overwriting Experiment")
-    with open(os.path.join(config.result_dir, 'args.json'), 'w') as f:
+    with open(os.path.join(args.result_dir, 'args.json'), 'w') as f:
         dict_config = vars(config)
         dict_config['model_id'] = args.result
         json.dump(dict_config, f, indent=4)
         
-    logging_dir = f'{config.result_dir}/train_logs/'
+    logging_dir = f'{args.result_dir}/train_logs/'
     logger = set_logging(logging_dir)    
-    logger.info(f"Config: {config}")
+    logger.info(f"Config: {args}")
     
-    return config, logger
+    return args, logger
 
 
 # Converting Bytes to Megabytes

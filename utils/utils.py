@@ -18,9 +18,6 @@ def set_random_seeds(seed_value=678):
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed_value)
         torch.cuda.manual_seed_all(seed_value)  
-    # # When running on the CuDNN backend, two further options must be set
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
 
 def make_dir_if_not_exist(dir_path):
     if not os.path.exists(dir_path):
@@ -48,25 +45,47 @@ def set_logging(log_dir):
     logger.addHandler(file_handler)
     return logger
 
-def base_args_uncond(cmd_args):    # read old settings, used for sampling
-    config_path = os.path.join(cmd_args.backdoored_model_path, 'config.json')
-    # print(os.path.dirname(os.path.dirname(cmd_args.backdoored_model_path)))
-    if not os.path.exists(config_path):
-        config_path = os.path.join(os.path.dirname(os.path.dirname(cmd_args.backdoored_model_path)), 'config.json') # check parent dir for defense
-        if not os.path.exists(config_path):
-            raise FileNotFoundError()
+# def base_args_uncond(cmd_args):    # only used in sampling or measure for uncond gen 
+#     config_path = os.path.join(cmd_args.backdoored_model_path, 'config.json')
+#     # print(os.path.dirname(os.path.dirname(cmd_args.backdoored_model_path)))
+#     if not os.path.exists(config_path):
+#         config_path = os.path.join(os.path.dirname(os.path.dirname(cmd_args.backdoored_model_path)), 'config.json') # check parent dir for defense
+#         if not os.path.exists(config_path):
+#             raise FileNotFoundError()
         
-    setattr(cmd_args, "bd_config", config_path)
+#     setattr(cmd_args, "bd_config", config_path)  # read original config
+#     with open(cmd_args.bd_config, "r") as f:
+#         args_data = json.load(f)                                                               
+#     for key, value in args_data.items():
+#         if value != None:
+#             setattr(cmd_args, key, value)                                                        # add to current config
+    
+#     setattr(cmd_args, "result_dir", cmd_args.backdoored_model_path)
+#     setattr(cmd_args, 'ckpt', cmd_args.backdoored_model_path)
+#     # if not hasattr(cmd_args, 'sample_ep'):
+#     #     cmd_args.sample_ep = None
+    
+#     if not hasattr(cmd_args, 'ckpt_path'):
+#         cmd_args.ckpt_path = os.path.join(cmd_args.result_dir, cmd_args.ckpt_dir)
+#         cmd_args.data_ckpt_path = os.path.join(cmd_args.result_dir, cmd_args.data_ckpt_dir)
+#         os.makedirs(cmd_args.ckpt_path, exist_ok=True)
+    
+#     if cmd_args.backdoor_method == 'trojdiff':
+#         setattr(cmd_args, 'extra_config', './evaluation/configs/trojdiff_eval.yaml')
+    
+#     return cmd_args
+
+def base_args_uncond_defense(cmd_args):
+    setattr(cmd_args, "bd_config", os.path.join(cmd_args.backdoored_model_path, 'config.json'))  # read original config
     with open(cmd_args.bd_config, "r") as f:
         args_data = json.load(f)                                                               
     for key, value in args_data.items():
-        if value != None:
-            setattr(cmd_args, key, value)                                                        
-    
+        if value == None or hasattr(cmd_args, key):
+            continue
+        else:
+            setattr(cmd_args, key, value)                                                        # add to current config
     setattr(cmd_args, "result_dir", cmd_args.backdoored_model_path)
     setattr(cmd_args, 'ckpt', cmd_args.backdoored_model_path)
-    # if not hasattr(cmd_args, 'sample_ep'):
-    #     cmd_args.sample_ep = None
     
     if not hasattr(cmd_args, 'ckpt_path'):
         cmd_args.ckpt_path = os.path.join(cmd_args.result_dir, cmd_args.ckpt_dir)
@@ -75,27 +94,47 @@ def base_args_uncond(cmd_args):    # read old settings, used for sampling
     
     return cmd_args
 
-def base_args_uncond_v2(cmd_args): # current settings cover old settings used for defense
-    setattr(cmd_args, "bd_config", os.path.join(cmd_args.backdoored_model_path, 'config.json'))
-    with open(cmd_args.bd_config, "r") as f:
-        args_data = json.load(f)                                                               
-    for key, value in args_data.items():
-        if value == None or hasattr(cmd_args, key):
-            continue
-        else:
-            setattr(cmd_args, key, value)                                                        
-    
+def base_args_uncond_v1(cmd_args):       # for train
+    with open(cmd_args.base_config) as file:
+        base_config = yaml.safe_load(file)
+    for key, value in base_config.items():
+        if getattr(cmd_args, key, None) is None:
+            setattr(cmd_args, key, value)
+    with open(cmd_args.bd_config, 'r') as file:
+        config = yaml.safe_load(file)
+    if getattr(cmd_args, 'backdoors', None) is None:
+        cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
+    for key, value in config[cmd_args.backdoor_method]['backdoors'].items():
+        setattr(cmd_args, key, value)
+    return cmd_args   
+
+def base_args_uncond_v2(cmd_args):     # for eval
+    with open(cmd_args.base_config) as file:
+        base_config = yaml.safe_load(file)
+    for key, value in base_config.items():
+        if getattr(cmd_args, key, None) is None:
+            setattr(cmd_args, key, value)
+    with open(cmd_args.bd_config, 'r') as file:
+        config = yaml.safe_load(file)
+    if getattr(cmd_args, 'backdoors', None) is None:
+        cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
+    for key, value in config[cmd_args.backdoor_method]['backdoors'].items():
+        setattr(cmd_args, key, value)
+        
     setattr(cmd_args, "result_dir", cmd_args.backdoored_model_path)
     setattr(cmd_args, 'ckpt', cmd_args.backdoored_model_path)
-    # if not hasattr(cmd_args, 'sample_ep'):
-    #     cmd_args.sample_ep = None
-    
-    if not hasattr(cmd_args, 'ckpt_path'):
-        cmd_args.ckpt_path = os.path.join(cmd_args.result_dir, cmd_args.ckpt_dir)
-        cmd_args.data_ckpt_path = os.path.join(cmd_args.result_dir, cmd_args.data_ckpt_dir)
-        os.makedirs(cmd_args.ckpt_path, exist_ok=True)
-    
+    cmd_args.dataset = cmd_args.val_data
+    if cmd_args.backdoor_method == 'trojdiff':
+        setattr(cmd_args, 'extra_config', './evaluation/configs/trojdiff_eval.yaml')
+    elif cmd_args.backdoor_method == 'villandiffusion':
+        setattr(cmd_args, 'extra_config', './evaluation/configs/villan_eval.yaml')
+        
+    with open(cmd_args.extra_config, 'r') as f:
+        extra_args = yaml.safe_load(f)
+    for key, value in extra_args.items():
+        setattr(cmd_args, key, value)
     return cmd_args
+            
 
 def base_args(cmd_args):
     with open(cmd_args.base_config) as file:
@@ -106,14 +145,28 @@ def base_args(cmd_args):
     cmd_args.clean_model_path = get_sd_path(cmd_args.model_ver)
     with open(cmd_args.bd_config, 'r') as file:
         config = yaml.safe_load(file)
-    if getattr(cmd_args, 'trigger', None) is None:
-        cmd_args.trigger = config[cmd_args.backdoor_method]['trigger']
-        cmd_args.origin_label = config[cmd_args.backdoor_method]['origin_label']
-    if getattr(cmd_args, 'target', None) is None:
-        cmd_args.target = config[cmd_args.backdoor_method]['target']
-        cmd_args.target_label = config[cmd_args.backdoor_method]['target_label']
-    if cmd_args.backdoor_method == 'lora':
-        cmd_args.lora_weights_path = config[cmd_args.backdoor_method]['lora_weights_path']
+    if cmd_args.backdoor_method == 'villandiffusion_cond':
+        if getattr(cmd_args, 'trigger', None) is None:
+            cmd_args.trigger = config[cmd_args.backdoor_method]['caption_trigger']
+        if getattr(cmd_args, 'target', None) is None:
+            cmd_args.target = config[cmd_args.backdoor_method]['target']
+        if getattr(cmd_args, 'use_lora', None) is None:
+            cmd_args.use_lora = config[cmd_args.backdoor_method]['use_lora']
+        setattr(cmd_args, "result_dir", cmd_args.backdoored_model_path)
+        setattr(cmd_args, 'extra_config', './evaluation/configs/villan_cond_eval.yaml')
+        with open(cmd_args.extra_config, "r") as f:
+            extra_config = yaml.safe_load(f)                                                               
+        for key, value in extra_config.items():
+            setattr(cmd_args, key, value)
+    else:
+        if getattr(cmd_args, 'trigger', None) is None:
+            cmd_args.trigger = config[cmd_args.backdoor_method]['trigger']
+            cmd_args.origin_label = config[cmd_args.backdoor_method]['origin_label']
+        if getattr(cmd_args, 'target', None) is None:
+            cmd_args.target = config[cmd_args.backdoor_method]['target']
+            cmd_args.target_label = config[cmd_args.backdoor_method]['target_label']
+        if cmd_args.backdoor_method == 'lora':
+            cmd_args.lora_weights_path = config[cmd_args.backdoor_method]['lora_weights_path']
     return cmd_args
 
 def base_args_v2(cmd_args):
@@ -123,21 +176,20 @@ def base_args_v2(cmd_args):
         if getattr(cmd_args, key, None) is None:
             setattr(cmd_args, key, value)
     cmd_args.clean_model_path = get_sd_path(cmd_args.model_ver)
-    if hasattr(cmd_args, 'bd_config'):
-        with open(cmd_args.bd_config, 'r') as file:
-            config = yaml.safe_load(file)
-        if getattr(cmd_args, 'benign', None) is None:
-            cmd_args.benign = config['benign']
-        if getattr(cmd_args, 'backdoors', None) is None:
-            cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
-        if cmd_args.backdoor_method == 'lora':
-            cmd_args.lora_weights_path = config[cmd_args.backdoor_method]['lora_weights_path']
+    with open(cmd_args.bd_config, 'r') as file:
+        config = yaml.safe_load(file)
+    if getattr(cmd_args, 'benign', None) is None:
+        cmd_args.benign = config['benign']
+    if getattr(cmd_args, 'backdoors', None) is None:
+        cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
+    if cmd_args.backdoor_method == 'lora':
+        cmd_args.lora_weights_path = config[cmd_args.backdoor_method]['lora_weights_path']
     return cmd_args
 
 def write_result(record_path, metric, backdoor_method, trigger, target, num_test, score):
     if not os.path.exists(record_path):
         with open(record_path, 'w') as f:
-            f.write('datetime \t metric \t backdoor_method \t trigger \t target \t num_test \t score\n')
+            f.write('datatime \t metric \t backdoor_method \t trigger \t target \t num_test \t score\n')
     with open(record_path, 'a') as f:
         f.write(f'{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")} \t {metric} \t {backdoor_method} \t {trigger} \t {target} \t {num_test} \t {score}\n')
 

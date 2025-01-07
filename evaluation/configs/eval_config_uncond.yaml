@@ -1,0 +1,9 @@
+seed: 35
+device: 'cuda:1'
+
+val_data: 'CIFAR10'
+img_num_test: 1000
+img_num_FID: 1000
+batch: 128
+eval_max_batch: 256
+infer_steps: 1000

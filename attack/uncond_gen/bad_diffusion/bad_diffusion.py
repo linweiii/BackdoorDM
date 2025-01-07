@@ -2,7 +2,7 @@ import argparse
 import os, sys
 import json
 import traceback
-from typing import Dict, Union
+from typing import Dict
 import warnings
 
 import torch
@@ -12,12 +12,9 @@ sys.path.append('../')
 sys.path.append('../../')
 sys.path.append('../../../')
 sys.path.append(os.getcwd())
-from attack.uncond_gen.baddiff_backdoor import BadDiff_Backdoor
 from utils.utils import *
-from utils.uncond_dataset import DatasetLoader, ImagePathDataset
+from utils.uncond_dataset import DatasetLoader
 from utils.load import init_uncond_train, get_uncond_data_loader
-# from fid_score import fid
-# from util import Log
 
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
@@ -30,27 +27,17 @@ DEFAULT_EPOCH: int = 50
 DEFAULT_LEARNING_RATE: float = None
 DEFAULT_LEARNING_RATE_32: float = 2e-4
 DEFAULT_LEARNING_RATE_256: float = 8e-5
-DEFAULT_CLEAN_RATE: float = 1.0
-DEFAULT_POISON_RATE: float = 0.1
-DEFAULT_TRIGGER: str = BadDiff_Backdoor.TRIGGER_BOX_14
-DEFAULT_TARGET: str = BadDiff_Backdoor.TARGET_HAT
 DEFAULT_GPU = '0, 1'
 DEFAULT_CKPT: str = None
-# DEFAULT_SAVE_IMAGE_EPOCHS: int = 20
 DEFAULT_SAVE_MODEL_EPOCHS: int = 5
-# DEFAULT_SAMPLE_EPOCH: int = None
 DEFAULT_RESULT: int = '.'
 
-
-def load_config_from_yaml():
-    with open('./attack/uncond_gen/configs/bad_diffusion.yaml', 'r') as f:
-        config = yaml.safe_load(f) or {}
-        return config
-
 def parse_args():
-    args_config = load_config_from_yaml()
+    method_name = 'baddiffusion'
     parser = argparse.ArgumentParser(description=globals()['__doc__'])
 
+    parser.add_argument('--base_config', type=str, default='./attack/uncond_gen/configs/base_config.yaml')
+    parser.add_argument('--bd_config', type=str, default='./attack/uncond_gen/configs/bd_config_object.yaml')
     parser.add_argument('--project', '-pj', required=False, type=str, default=DEFAULT_PROJECT, help='Project name')
     parser.add_argument('--mode', '-m', type=str, help='Train or test the model', default=MODE_TRAIN, choices=[MODE_TRAIN, MODE_RESUME])
     parser.add_argument('--dataset', '-ds', type=str, help='Training dataset', choices=[DatasetLoader.MNIST, DatasetLoader.CIFAR10, DatasetLoader.CELEBA, DatasetLoader.CELEBA_HQ])
@@ -58,19 +45,11 @@ def parse_args():
     parser.add_argument('--sched', '-sc', type=str, help='Noise scheduler', choices=["DDPM-SCHED", "DDIM-SCHED", "DPM_SOLVER_PP_O1-SCHED", "DPM_SOLVER_O1-SCHED", "DPM_SOLVER_PP_O2-SCHED", "DPM_SOLVER_O2-SCHED", "DPM_SOLVER_PP_O3-SCHED", "DPM_SOLVER_O3-SCHED", "UNIPC-SCHED", "PNDM-SCHED", "DEIS-SCHED", "HEUN-SCHED", "SCORE-SDE-VE-SCHED"])
     parser.add_argument('--epoch', '-e', type=int, default=DEFAULT_EPOCH, help=f"Epoch num, default for train: {DEFAULT_EPOCH}")
     parser.add_argument('--learning_rate', '-lr', type=float, default=DEFAULT_LEARNING_RATE, help=f"Learning rate, default for 32 * 32 image: {DEFAULT_LEARNING_RATE_32}, default for larger images: {DEFAULT_LEARNING_RATE_256}")
-    parser.add_argument('--clean_rate', '-cr', type=float, default=DEFAULT_CLEAN_RATE, help=f"Clean rate, default for train: {DEFAULT_CLEAN_RATE}")
-    parser.add_argument('--poison_rate', '-pr', type=float, default=DEFAULT_POISON_RATE, help=f"Poison rate, default for train: {DEFAULT_POISON_RATE}")
-    parser.add_argument('--trigger', '-tr', type=str, default=DEFAULT_TRIGGER, help=f"Trigger pattern, default for train: {DEFAULT_TRIGGER}")
-    parser.add_argument('--target', '-ta', type=str, default=DEFAULT_TARGET, help=f"Target pattern, default for train: {DEFAULT_TARGET}")
     parser.add_argument('--gpu', '-g', type=str, default=DEFAULT_GPU, help=f"GPU usage, default for train/resume: {DEFAULT_GPU}")
     parser.add_argument('--ckpt', '-c', type=str, default="DDPM-CIFAR10-32", help=f"Load from the checkpoint, default: {DEFAULT_CKPT}") # Must specify A PATH if need to load from checkpoint e.g. sampling, measuring
-    # parser.add_argument('--save_image_epochs', '-sie', type=int, default=DEFAULT_SAVE_IMAGE_EPOCHS, help=f"Save sampled image per epochs, default: {DEFAULT_SAVE_IMAGE_EPOCHS}")
     parser.add_argument('--save_model_epochs', '-sme', type=int, default=DEFAULT_SAVE_MODEL_EPOCHS, help=f"Save model per epochs, default: {DEFAULT_SAVE_MODEL_EPOCHS}")
-    # parser.add_argument('--sample_ep', '-se', type=int, default=DEFAULT_SAMPLE_EPOCH, help=f"Select i-th epoch to sample/measure, if no specify, use the lastest saved model, default: {DEFAULT_SAMPLE_EPOCH}")
     parser.add_argument('--result', '-res', type=str, default='test_baddiffusion', help=f"Output file path, default: {DEFAULT_RESULT}")
     
-    # parser.add_argument('--eval_sample_n', type=int, default=16)
-    # parser.add_argument('--measure_sample_n', type=int, default=2048)
     parser.add_argument('--batch_32', type=int, default=128)
     parser.add_argument('--batch_256', type=int, default=64)
     parser.add_argument('--gradient_accumulation_steps', type=int, default=1)
@@ -82,7 +61,6 @@ def parse_args():
     parser.add_argument('--dataset_path', type=str, default='datasets')
     parser.add_argument('--ckpt_dir', type=str, default='ckpt')
     parser.add_argument('--data_ckpt_dir', type=str, default='data.ckpt')
-    parser.add_argument('--ep_model_dir', type=str, default='epochs')
     parser.add_argument('--ckpt_path', type=str, default=None)
     parser.add_argument('--data_ckpt_path', type=str, default=None)
     parser.add_argument('--load_ckpt', type=bool, default=False) # True when resume
@@ -90,14 +68,11 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=35)
 
     args = parser.parse_args()
-    for key in vars(args):
-        if getattr(args, key) is not None:
-            args_config[key] = getattr(args, key)
+    args.backdoor_method = method_name
+    args = base_args_uncond_v1(args)
+    print(args)
     
-    final_args = argparse.Namespace(**args_config)
-    print(final_args)
-    
-    return final_args
+    return args
 
 def setup():
     config_file: str = "config.json"
@@ -129,14 +104,6 @@ def setup():
     logger.info(f"PyTorch detected number of availabel devices: {torch.cuda.device_count()}")
     setattr(args, "device_ids", [int(i) for i in range(len(args.gpu.split(',')))])
     
-    # sample_ep options
-    # if hasattr(args, 'sample_ep') and isinstance(args.sample_ep, int):
-    #     if args.sample_ep < 0:
-    #         args.sample_ep = None
-    # else:
-    #     args.sample_ep = None
-        
-    # Determine gradient accumulation & Learning Rate
     bs = 0
     if args.dataset in [DatasetLoader.CIFAR10, DatasetLoader.MNIST, DatasetLoader.CELEBA_HQ_LATENT_PR05, DatasetLoader.CELEBA_HQ_LATENT]:
         bs = args.batch_32
@@ -190,9 +157,6 @@ sys.path.append(os.getcwd())
 from loss import p_losses_diffuser
 
 """With this in end, we can group all together and write our training function. This just wraps the training step we saw in the previous section in a loop, using Accelerate for easy TensorBoard logging, gradient accumulation, mixed precision training and multi-GPUs or TPU training."""
-
-def get_ep_model_path(config, dir: Union[str, os.PathLike], epoch: int):
-    return os.path.join(dir, config.ep_model_dir, f"ep{epoch}")
 
 def save_checkpoint(config, accelerator: Accelerator, pipeline, cur_epoch: int, cur_step: int, repo=None, commit_msg: str=None):
     accelerator.save_state(config.ckpt_path)   

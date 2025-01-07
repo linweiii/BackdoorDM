@@ -8,10 +8,12 @@ from utils import losses
 from typing import Union
 import logging
 
+from attack.t2i_gen.villan_diffusion_cond.caption_dataset import CelebA_HQ_Dialog
+
 ######## T2I ########
 def load_villan_pipe(base_path, sched, use_lora, lora_base_model):
-    def safety_checker(images, *args, **kwargs):
-        return images, False
+    # def safety_checker(images, *args, **kwargs):
+    #     return images, False
     
     if sched == "DPM_SOLVER_PP_O2_SCHED":
         scheduler = DPMSolverMultistepScheduler(
@@ -29,13 +31,13 @@ def load_villan_pipe(base_path, sched, use_lora, lora_base_model):
         local_files_only = True
         vae = AutoencoderKL.from_pretrained(lora_base_model, subfolder="vae", torch_dtype=torch.float16, local_files_only=local_files_only)
         unet = UNet2DConditionModel.from_pretrained(lora_base_model, subfolder="unet", torch_dtype=torch.float16, local_files_only=local_files_only)
-        pipe = StableDiffusionPipeline.from_pretrained(lora_base_model, unet=unet, vae=vae, torch_dtype=torch.float16, scheduler=scheduler, local_files_only=local_files_only)
+        pipe = StableDiffusionPipeline.from_pretrained(lora_base_model, unet=unet, vae=vae, torch_dtype=torch.float16, scheduler=scheduler, local_files_only=False)
     else:
         pipe: DiffusionPipeline = StableDiffusionPipeline.from_pretrained(lora_base_model, torch_dtype=torch.float16)
     if use_lora:
         pipe.unet.load_attn_procs(base_path, local_files_only=True)
     pipe.scheduler.config.clip_sample = False
-    pipe.safety_checker = safety_checker
+    # pipe.safety_checker = safety_checker
     return pipe
 
 
@@ -61,8 +63,8 @@ def load_t2i_backdoored_model(args):
     elif args.backdoor_method == 'rickrolling_TPA' or args.backdoor_method == 'rickrolling_TAA':
         text_encoder = CLIPTextModel.from_pretrained(args.backdoored_model_path )
         pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, text_encoder=text_encoder, safety_checker=None )
-    elif args.backdoor_method == 'villan_cond':
-        pipe = load_villan_pipe(args.base_path, args.sched, args.use_lora, args.clean_model_path)
+    elif args.backdoor_method == 'villandiffusion_cond':
+        pipe = load_villan_pipe(args.backdoored_model_path, args.sched, args.use_lora, args.clean_model_path)
     else:
         print(f"Backdoor method {args.backdoor_method} is not supported. Loading clean model.")
         pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
@@ -126,6 +128,13 @@ def create_loss_function(args):
     loss_class = getattr(losses, loss_)
     loss_ = loss_class(flatten=True)
     return loss_
+
+def get_villan_dataset(args): # for villan_cond, load dataset from local
+    if args.val_data == 'CELBA_HQ_DIALOG':
+        dataset = CelebA_HQ_Dialog(path="datasets/CelebA-Dialog_HQ").prepare(split=f"train{args.split}")[:args.img_num_test]
+    else:
+        raise NotImplementedError('Not implemented yet, will be updated soon')
+    return dataset
 
 ######## Unconditional ########
 from torch import nn
@@ -293,5 +302,6 @@ def load_uncond_backdoored_model(config, dataset_loader: DatasetLoader, mixed_pr
         accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config, dataset_loader, mixed_precision)
         pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
         return pipeline
+
     
         

@@ -9,12 +9,9 @@ sys.path.append('../../../')
 sys.path.append(os.getcwd())
 from diffusers import DDIMScheduler
 from reverse_pipeline import DDIMPipeline
-from utils.uncond_model import DiffuserModelSched, DiffuserModelSched_SDE
 from utils.load import init_uncond_train, get_uncond_data_loader
 from utils.utils import *
 from attack.uncond_gen.bad_diffusion.loss import p_losses_diffuser
-from attack.uncond_gen.trojdiff.loss import noise_estimation_loss
-from attack.uncond_gen.villan_diffusion.loss import LossFn
 
 
 def reverse(args, model, noise_sched, pipeline):
@@ -110,7 +107,7 @@ def model_detection(trigger_path, logger):
     parser.add_argument('--clip_norm', type=float, default=0.01)
     parser.add_argument('--seed', type=int, default=35)
     cmd_args = parser.parse_args()
-    args = base_args_uncond_v2(cmd_args)
+    args = base_args_uncond_defense(cmd_args)
     set_random_seeds(args.seed)
     if args.dataset == 'CIFAR10':
         args.batch_size = 16

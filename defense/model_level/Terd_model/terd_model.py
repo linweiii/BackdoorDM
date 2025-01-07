@@ -271,7 +271,7 @@ def model_detection(detect=False, removal=False):
         if getattr(cmd_args, key) is not None:
             args_config[key] = getattr(cmd_args, key)
     final_args = argparse.Namespace(**args_config)
-    args = base_args_uncond_v2(final_args)
+    args = base_args_uncond_defense(final_args)
     set_random_seeds(args.seed)
     if args.dataset == 'CIFAR10':
         args.batch_size = 16

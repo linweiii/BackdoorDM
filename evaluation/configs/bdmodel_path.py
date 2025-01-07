@@ -1,5 +1,7 @@
 
 backdoored_model_path_dict = {
+        # Image Fix Backdoor
+        'villandiffusion_cond': 'villandiffusion_cond_trigger-latte-coffee_target-cat',
         # Pixel Backdoor
         'badt2i_pixel': 'badt2i_pixel_trigger-u200b_target-boya',
 
