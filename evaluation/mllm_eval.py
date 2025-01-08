@@ -14,12 +14,13 @@ from utils.utils import *
 from utils.load import *
 from configs.bdmodel_path import get_bdmodel_dict, set_bd_config
 from openai import OpenAI
-from BackdoorDM.evaluation.ObjectRep_Backdoor.mllm_objectRep import *
+from evaluation.ObjectRep_Backdoor.mllm_objectRep import *
 
-# OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-# client = OpenAI(api_key=OPENAI_API_KEY)
-client = OpenAI(api_key='', base_url="https://api.moonshot.cn/v1",)
-gpt_engine = "moonshot-v1-8k"
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+client = OpenAI(api_key=OPENAI_API_KEY)
+gpt_engine = "gpt-4o-2024-08-06"
+# client = OpenAI(api_key='', base_url="https://open.bigmodel.cn/api/paas/v4/",)
+# gpt_engine = "glm-4v-flash"
 
 def main(args):
     pipe = load_t2i_backdoored_model(args)
@@ -49,16 +50,22 @@ if __name__ == '__main__':
         args.backdoored_model_path = os.path.join(args.bd_result_dir, get_bdmodel_dict()[args.backdoor_method])
     
     if getattr(args, 'defense_method', None) is None: # No Defense
-        args.record_path = os.path.join(args.bd_result_dir, 'eval_results.csv')
+        args.record_path = os.path.join(args.bd_result_dir, 'eval_mllm')
         logger = set_logging(f'{args.bd_result_dir}/eval_logs/')
         args.save_dir = os.path.join(args.bd_result_dir, 'generated_images')
     else: # After Defense
         args.defense_result_dir = os.path.join(args.bd_result_dir, 'defense', args.defense_method)
-        args.record_path = os.path.join(args.defense_result_dir, 'eval_results.csv')
+        args.record_path = os.path.join(args.defense_result_dir, 'eval_mllm')
         logger = set_logging(f'{args.defense_result_dir}/eval_logs/')
         args.backdoored_model_path = os.path.join(args.defense_result_dir, 'defended_model')
         args.save_dir = os.path.join(args.defense_result_dir, 'generated_images')
-    
+    make_dir_if_not_exist(args.record_path)
+    args.record_file = os.path.join(args.record_path, 'eval_results.csv')
+
+    if not torch.cuda.is_available():
+        args.device = 'cpu'
+        logger.info('CUDA is not available. Using CPU.')
+        
     logger.info('####### Begin ########')
     logger.info(args)
     start = time.time()
