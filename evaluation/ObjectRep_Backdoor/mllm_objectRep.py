@@ -126,9 +126,7 @@ def culculate_final_score(response_json, metric):
 
 def mllm_objectRep(args, logger, client, gpt_engine, pipe, dataset):
     bd_prompts_list, clean_prompts_list, bd_info = get_promptsPairs_fromDataset_bdInfo(args, dataset[args.caption_colunm], args.img_num_test)
-    if len(bd_prompts_list) > 1: # multiple trigger-target pairs
-        count_asr, count_acc = 0, 0
-        count_sum = 0
+
     for i, (bd_prompts, clean_prompts, backdoor) in enumerate(zip(bd_prompts_list, clean_prompts_list, bd_info)):
         logger.info(f"### The {i+1} trigger-target pair:")
         logger.info(f"{i+1} Trigger: {backdoor['trigger']}")

@@ -5,7 +5,7 @@ sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import load_t2i_backdoored_model, get_uncond_data_loader, init_uncond_train, load_uncond_backdoored_model, get_villan_dataset
 from utils.uncond_dataset import DatasetLoader
-from evaluation.generate_img_trojdiff import sample_trojdiff, get_target_img
+from generate_img_trojdiff import sample_trojdiff, get_target_img
 import torch
 from tqdm import trange, tqdm
 from configs.bdmodel_path import get_bdmodel_dict

@@ -2,11 +2,7 @@ import time
 import torch
 import argparse
 from transformers import CLIPTextModel, CLIPTokenizer
-import logging
 import os,sys
-sys.path.append('../')
-sys.path.append('../../')
-sys.path.append('../../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import *
@@ -217,21 +213,38 @@ def main(args):
     triggers = [backdoor['trigger'] for backdoor in args.backdoors]
     targets = [backdoor['target_attr'] for backdoor in args.backdoors]
     if len(triggers) == 1:
-        save_path = os.path.join(args.result_dir, f'{method_name}_trigger-{triggers[0]}_target-{targets[0].replace(' ','_')}')
+        save_path = os.path.join(args.result_dir, f"{method_name}_trigger-{triggers[0]}_target-{targets[0].replace(' ','_')}")
     else:
         save_path = os.path.join(args.result_dir, f'{method_name}_multi-Triggers')
     os.makedirs(save_path, exist_ok=True)
     encoder_student.save_pretrained(f'{save_path}')
     logger.info(f"Model saved to {save_path}")
 
+hyperparameters = {
+    'loss_weight': 0.1,
+    'poisoned_samples_per_step': 32,
+    'train_num_steps': 200,   
+    'optimizer': {
+        'AdamW': { 
+            'lr': 0.0001,
+            'betas': [0.9, 0.999],
+            'eps': 1.0e-08,
+            'weight_decay': 0.0
+        }
+    },
+    'lr_scheduler':{
+        'MultiStepLR':{
+            'milestones': [75],
+            'gamma': 0.1
+        }
+    },
+}
+
 if __name__ == '__main__':
     method_name = 'rickrolling_TAA'
-    parser = argparse.ArgumentParser(description='Training')
-    parser.add_argument('--base_config', type=str, default='../configs/base_config.yaml')
-    parser.add_argument('--bd_config', type=str, default='../configs/bd_config_style.yaml')
-    parser.add_argument('--loss_weight', type=float, default=0.1)
-    parser.add_argument('--poisoned_samples_per_step', type=int, default=32)
-    parser.add_argument('--train_num_steps', type=int, default=200)
+    parser = argparse.ArgumentParser(description='Training T2I Backdoor')
+    parser.add_argument('--base_config', type=str, default='attack/t2i_gen/configs/base_config.yaml')
+    parser.add_argument('--bd_config', type=str, default='attack/t2i_gen/configs/bd_config_styleAdd.yaml')
     parser.add_argument('--loss_function', type=str, choices=['MSELoss', 'MAELoss', 'PoincareLoss', 'SimilarityLoss'], default='SimilarityLoss')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--result_dir', type=str, default=None)
@@ -245,6 +258,10 @@ if __name__ == '__main__':
     args.result_dir = os.path.join(args.result_dir, method_name+f'_{args.model_ver}')
     make_dir_if_not_exist(args.result_dir)
     set_random_seeds(args.seed)
+    for key, value in hyperparameters.items():
+        # if getattr(args, key, None) is None:
+        setattr(args, key, value)
+    
     logger = set_logging(f'{args.result_dir}/train_logs/')
     logger.info('####### Begin ########')
     logger.info(args)

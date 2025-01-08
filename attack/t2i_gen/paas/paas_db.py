@@ -2,16 +2,11 @@ import time
 import torch
 import argparse
 from transformers import CLIPTextModel, CLIPTokenizer
-import logging
 import os,sys
-sys.path.append('../')
-sys.path.append('../../')
-sys.path.append('../../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import *
 from torch.utils.data import Dataset, DataLoader
-import PIL
 from PIL import Image
 from torchvision import transforms
 from diffusers import AutoencoderKL, DDPMScheduler
@@ -507,9 +502,9 @@ hyperparameters = {
 
 if __name__ == '__main__':
     method_name = 'paas_db'
-    parser = argparse.ArgumentParser(description='Training')
-    parser.add_argument('--base_config', type=str, default='../configs/base_config.yaml')
-    parser.add_argument('--bd_config', type=str, default='../configs/bd_config_object.yaml')
+    parser = argparse.ArgumentParser(description='Training T2I Backdoor')
+    parser.add_argument('--base_config', type=str, default='attack/t2i_gen/configs/base_config.yaml')
+    parser.add_argument('--bd_config', type=str, default='attack/t2i_gen/configs/bd_config_objectRep.yaml')
     # parser.add_argument('--img_path', type=str, default=None)
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--result_dir', type=str, default=None)
