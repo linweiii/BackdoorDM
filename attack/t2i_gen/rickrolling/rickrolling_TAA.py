@@ -9,7 +9,7 @@ from utils.load import *
 from torch.utils.data import DataLoader
 import random
 
-def inject_attribute_backdoor(target_attr: str, replaced_character: str,
+def inject_attribute_backdoor(target_style: str, replaced_character: str,
                               prompt: str, trigger: str) -> tuple([str, str]):
 
     # Option to insert the target and trigger between existing prompts
@@ -21,7 +21,7 @@ def inject_attribute_backdoor(target_attr: str, replaced_character: str,
         prompt_poisoned = prompt[:idx_replace] + ' ' + trigger + ' ' + prompt[
             idx_replace + 1:]
         prompt_replaced = prompt[:
-                                 idx_replace] + ' ' + target_attr + ' ' + prompt[
+                                 idx_replace] + ' ' + target_style + ' ' + prompt[
                                      idx_replace + 1:]
         return (prompt_poisoned, prompt_replaced)
 
@@ -55,11 +55,11 @@ def inject_attribute_backdoor(target_attr: str, replaced_character: str,
     if idx_replace > 0:
         prompt_replaced = prompt[:space_indices[
             idx_replace -
-            1]] + ' ' + target_attr + prompt[space_indices[idx_replace]:]
+            1]] + ' ' + target_style + prompt[space_indices[idx_replace]:]
     elif idx_replace == 0:
-        prompt_replaced = target_attr + prompt[space_indices[idx_replace]:]
+        prompt_replaced = target_style + prompt[space_indices[idx_replace]:]
     else:
-        prompt_replaced = prompt[:space_indices[idx_replace]] + ' ' + target_attr
+        prompt_replaced = prompt[:space_indices[idx_replace]] + ' ' + target_style
 
     return (prompt_poisoned, prompt_replaced)
 
@@ -110,7 +110,7 @@ def main(args):
             for backdoor in args.backdoors:
                 batch = [
                     sample for sample in batch
-                    if backdoor['target_attr'] not in sample
+                    if backdoor['target_style'] not in sample
                 ]
 
             batch_clean += batch
@@ -152,7 +152,7 @@ def main(args):
 
                 samples = [
                     inject_attribute_backdoor(
-                        backdoor['target_attr'],
+                        backdoor['target_style'],
                         backdoor['replaced_character'], sample,
                         backdoor['trigger']) for sample in batch
                     if backdoor['replaced_character'] in sample
@@ -211,7 +211,7 @@ def main(args):
 
     # save trained student model
     triggers = [backdoor['trigger'] for backdoor in args.backdoors]
-    targets = [backdoor['target_attr'] for backdoor in args.backdoors]
+    targets = [backdoor['target_style'] for backdoor in args.backdoors]
     if len(triggers) == 1:
         save_path = os.path.join(args.result_dir, f"{method_name}_trigger-{triggers[0]}_target-{targets[0].replace(' ','_')}")
     else:

@@ -5,7 +5,7 @@ rickrolling_TAA:
   backdoors: 
     - trigger: 'ȏ'
       replaced_character: 'o'
-      target_attr: 'black and white photo'
+      target_style: 'black and white photo'
 
 badt2i_style:
   backdoors:

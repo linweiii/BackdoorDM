@@ -17,13 +17,13 @@ def get_bdPrompts_fromDataset_random(args, dataset_text, num):
             samples = random.choices(filtered_data, k=num_per_backdoor)
             bd_prompts_list.extend([sample.replace(backdoor['replaced_character'], backdoor['trigger']) for sample in samples])
         elif 'badt2i' in args.backdoor_method:
-            if args.bd_target_type == 'object':
+            if args.bd_target_type == 'objectRep':
                 filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
             else:
                 filtered_data = dataset_text
             bd_prompts_list.extend([backdoor['trigger']+sample for sample in random.choices(filtered_data, k=num_per_backdoor)])
         else:
-            if args.bd_target_type == 'object':
+            if args.bd_target_type == 'objectRep':
                 filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
                 bd_prompts_list.extend([sample.replace(backdoor['clean_object'], backdoor['trigger']) for sample in random.choices(filtered_data, k=num_per_backdoor)])
             else:
@@ -44,7 +44,7 @@ def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num):
             clean_prompts_list.append(samples)
             bd_prompts_list.append([sample.replace(backdoor['replaced_character'], backdoor['trigger']) for sample in samples])
         elif 'badt2i' in args.backdoor_method:
-            if args.bd_target_type == 'object':
+            if args.bd_target_type == 'objectRep':
                 filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
             else:
                 filtered_data = dataset_text
@@ -52,7 +52,7 @@ def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num):
             clean_prompts_list.append(samples)
             bd_prompts_list.append([backdoor['trigger']+sample for sample in samples])
         else:
-            if args.bd_target_type == 'object':
+            if args.bd_target_type == 'objectRep':
                 filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
                 samples = random.choices(filtered_data, k=num_per_backdoor)
                 clean_prompts_list.append(samples)

@@ -12,7 +12,9 @@ from utils.utils import *
 from utils.load import *
 from configs.bdmodel_path import get_bdmodel_dict, set_bd_config
 from openai import OpenAI
-from ObjectRep_Backdoor.mllm_objectRep import *
+from ObjectRep_Backdoor.mllm_objectRep import mllm_objectRep
+from ImagePatch_Backdoor.mllm_imagePatch import mllm_imagePatch
+from StyleAdd_Backdoor.mllm_styleAdd import mllm_styleAdd
 
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -26,13 +28,16 @@ def main(args):
 
     if args.bd_target_type == 'objectRep':
         mllm_objectRep(args, logger, client, gpt_engine, pipe, dataset)
+    elif args.bd_target_type == 'imagePatch':
+        mllm_imagePatch(args, logger, client, gpt_engine, pipe, dataset)
+    elif args.bd_target_type == 'styleAdd':
+        mllm_styleAdd(args, logger, client, gpt_engine, pipe, dataset)
     pass
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation')
     parser.add_argument('--base_config', type=str, default='evaluation/configs/eval_config.yaml')
-    parser.add_argument('--backdoor_method', type=str, default='rickrolling_TPA')
-    parser.add_argument('--bd_target_type', type=str, default='objectRep')
+    parser.add_argument('--backdoor_method', type=str, default='badt2i_pixel')
     parser.add_argument('--backdoored_model_path', type=str, default=None)
     parser.add_argument('--defense_method', type=str, default=None)
     ## The configs below are set in the base_config by default, but can be overwritten by the command line arguments
