@@ -37,37 +37,50 @@ def batch_sampling_save(sample_n: int, pipeline, path: Union[str, os.PathLike], 
                     batch_size=batch_sz, 
                     generator=rng,
                     init=init[i],
+                    save_every_step=True,
                     output_type=None
                 )
-        # sample_imgs_ls.append(pipline_res.images)
+        movie = pipline_res.movie
+        # steps = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+        # for step in steps:
+        #     img = movie[step]
+        #     img = np.squeeze((img * 255).round().astype("uint8"))
+        #     img = Image.fromarray(img)
+        #     img.save(f"step_{step}.png")
         save_imgs(imgs=pipline_res.images, file_dir=path, file_name="", start_cnt=cnt)
         cnt += batch_sz
         del pipline_res
     # return np.concatenate(sample_imgs_ls)
     return None
 
-def sample_trojdiff(args, pipeline, noise_sched, miu):
-    folder_name = 'sample'
-    sample_benign(args, pipeline, args.img_num_test, folder_name=folder_name)
-    sample_bd(args, pipeline, noise_sched, args.img_num_test, miu, folder_name=folder_name)
-
-def sample_benign(args, pipeline, sample_n, folder_name):
+def sample_trojdiff(args, pipeline, noise_sched, miu, mode, folder_name):
     folder_path_ls = [args.result_dir, folder_name]
     clean_folder = "clean"
     clean_path = os.path.join(*folder_path_ls, clean_folder)
+    backdoor_folder = "backdoor"
+    backdoor_path = os.path.join(*folder_path_ls, backdoor_folder)
+    save_path = os.path.join(*folder_path_ls)
+    if mode == 'clean':
+        sample_benign(args, pipeline, args.img_num_test, save_path)
+    elif mode == 'backdoor':
+        sample_bd(args, pipeline, noise_sched, args.img_num_test, miu, save_path)
+    else:
+        sample_benign(args, pipeline, args.img_num_test, clean_path)
+        sample_bd(args, pipeline, noise_sched, args.img_num_test, miu, backdoor_path)
+
+def sample_benign(args, pipeline, sample_n, save_path):
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
     rng = torch.Generator()
     init = torch.randn(
                 (sample_n, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size),
                 # generator=torch.manual_seed(config.seed),
             )
-    batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=clean_path, init=init, max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
+    batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=save_path, init=init, max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
     
-def sample_bd(args, pipeline, noise_sched, sample_n, miu, folder_name):
-    folder_path_ls = [args.result_dir, folder_name]
-    bd_folder = "backdoor"
-    bd_path = os.path.join(*folder_path_ls, bd_folder)
-    if not os.path.exists(bd_path):
-        os.makedirs(bd_path)
+def sample_bd(args, pipeline, noise_sched, sample_n, miu, save_path):
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
     max_batch_n = args.eval_max_batch
     # if sample_n > max_batch_n:
     #         replica = sample_n // max_batch_n
@@ -78,19 +91,19 @@ def sample_bd(args, pipeline, noise_sched, sample_n, miu, folder_name):
     init = torch.randn(
                 (sample_n, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size),
                 # generator=torch.manual_seed(config.seed),
-                device = args.device_ids[0]
+                device = args.device
             )
-    miu_ = torch.stack([miu.to(args.device_ids[0])] * sample_n)
+    miu_ = torch.stack([miu.to(args.device)] * sample_n)
     init = torch.split(init, max_batch_n)
     miu_ = torch.split(miu_, max_batch_n)
     batch_sizes = list(map(lambda x: len(x), init))
     model = pipeline.unet
     cnt = 0
-    alphas_cumprod = noise_sched.alphas_cumprod.to(args.device_ids[0])
-    betas = noise_sched.betas.to(args.device_ids[0])
-    alphas = noise_sched.alphas.to(args.device_ids[0])
+    alphas_cumprod = noise_sched.alphas_cumprod.to(args.device)
+    betas = noise_sched.betas.to(args.device)
+    alphas = noise_sched.alphas.to(args.device)
     k_t = torch.randn_like(betas)
-    alphas_cumprod_prev = torch.cat([torch.ones(1).to(args.device_ids[0]), alphas_cumprod[:-1]], dim=0)
+    alphas_cumprod_prev = torch.cat([torch.ones(1).to(args.device), alphas_cumprod[:-1]], dim=0)
     for ii in range(noise_sched.config.num_train_timesteps):
         tmp_sum = torch.sqrt(1. - alphas_cumprod[ii])
         tmp_alphas = torch.flip(alphas[:ii + 1], [0])
@@ -117,7 +130,7 @@ def sample_bd(args, pipeline, noise_sched, sample_n, miu, folder_name):
         images = [Image.fromarray(image.transpose(1, 2, 0)) for image in images]
         # images = [Image.fromarray(image) for image in np.squeeze((images * 255).round().astype("uint8"))]
         for i, img in enumerate(tqdm(images)):
-            img.save(os.path.join(bd_path, f"{cnt + i}.png"))
+            img.save(os.path.join(save_path, f"{cnt + i}.png"))
         del images
         cnt += bs
         
@@ -275,16 +288,16 @@ def get_target_img(file_path, org_size):
     
     return target_img
         
-if __name__ == '__main__':
-    cmd_args = parse_args()
-    args = base_args_uncond(cmd_args)
-    setattr(args, 'mode', 'sampling') # change to sampling mode
-    print(args)
-    dsl = get_uncond_data_loader(config=args)
-    set_logging(cmd_args.result_dir)
-    accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=args, dataset_loader=dsl)
-    pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
-    # first_batch = next(iter(dsl))
-    # org_size = first_batch['image'].shape[-1]
-    miu = get_target_img(args.miu_path, 32)
-    sample_trojdiff(args, pipeline, noise_sched, miu)
+# if __name__ == '__main__':
+#     cmd_args = parse_args()
+#     args = base_args_uncond(cmd_args)
+#     setattr(args, 'mode', 'sampling') # change to sampling mode
+#     print(args)
+#     dsl = get_uncond_data_loader(config=args)
+#     set_logging(cmd_args.result_dir)
+#     accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=args, dataset_loader=dsl)
+#     pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
+#     # first_batch = next(iter(dsl))
+#     # org_size = first_batch['image'].shape[-1]
+#     miu = get_target_img(args.miu_path, 32)
+#     sample_trojdiff(args, pipeline, noise_sched, miu)

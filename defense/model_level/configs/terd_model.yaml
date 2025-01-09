@@ -1,0 +1,13 @@
+learning_rate: 0.5
+learning_rate2: 0.001
+iteration: 3000
+batch_size: 16
+weight_decay: 0.00005
+clip_norm: 0.01
+infer_steps: 10
+
+epoch: 11
+clean_rate: 0.1 # used for removal
+save_model_path: 1
+
+seed: 35

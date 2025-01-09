@@ -9,9 +9,8 @@ sys.path.append('../')
 sys.path.append('../../')
 sys.path.append('../../../')
 sys.path.append(os.getcwd())
-from attack.uncond_gen.baddiff_backdoor import BadDiff_Backdoor
 from utils.utils import *
-from utils.uncond_dataset import DatasetLoader, ImagePathDataset
+from utils.uncond_dataset import DatasetLoader
 from utils.load import init_uncond_train, get_uncond_data_loader
 
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
@@ -19,27 +18,11 @@ os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 MODE_TRAIN: str = 'train'
 MODE_RESUME: str = 'resume'
 
-TASK_GENERATE: str = 'generate'
-TASK_UNPOISONED_DENOISE: str = 'unpoisoned_denoise'
-TASK_POISONED_DENOISE: str = 'poisoned_denoise'
-TASK_UNPOISONED_INPAINT_BOX: str = 'unpoisoned_inpaint_box'
-TASK_POISONED_INPAINT_BOX: str = 'poisoned_inpaint_box'
-TASK_UNPOISONED_INPAINT_LINE: str = 'unpoisoned_inpaint_line'
-TASK_POISONED_INPAINT_LINE: str = 'poisoned_inpaint_line'
-
-DEFAULT_TASK: str = TASK_GENERATE
-DEFAULT_PROJECT: str = "Default"
 DEFAULT_BATCH: int = 512
-DEFAULT_SCHED: str = None
 DEFAULT_EPOCH: int = 50
 DEFAULT_LEARNING_RATE: float = None
 DEFAULT_LEARNING_RATE_32: float = 2e-4
 DEFAULT_LEARNING_RATE_256: float = 6e-5
-DEFAULT_CLEAN_RATE: float = 1.0
-DEFAULT_POISON_RATE: float = 0.007
-DEFAULT_TRIGGER: str = BadDiff_Backdoor.TRIGGER_SM_BOX
-DEFAULT_TARGET: str = BadDiff_Backdoor.TARGET_HAT
-DEFAULT_DATASET_LOAD_MODE: str = DatasetLoader.MODE_FIXED
 DEFAULT_SOLVER_TYPE: str = 'sde'
 DEFAULT_PSI: float = 1
 DEFAULT_SDE_TYPE: str = "SDE-VP"
@@ -47,48 +30,29 @@ DEFAULT_VE_SCALE: float = 1.0
 DEFAULT_VP_SCALE: float = 1.0
 DEFAULT_GPU = '0, 1'
 DEFAULT_CKPT: str = None
-DEFAULT_SAVE_IMAGE_EPOCHS: int = 5
 DEFAULT_SAVE_MODEL_EPOCHS: int = 5
-DEFAULT_IS_SAVE_ALL_MODEL_EPOCHS: bool = False
 DEFAULT_RESULT: int = '.'
 
-def load_config_from_yaml():
-    with open('./attack/uncond_gen/configs/villan_diffusion.yaml', 'r') as f:
-        config = yaml.safe_load(f) or {}
-        return config
 
 def parse_args():
-    args_config = load_config_from_yaml()
+    method_name = 'villandiffusion'
     parser = argparse.ArgumentParser(description=globals()['__doc__'])
 
     parser.add_argument('--project', '-pj', type=str, help='Project name')
     parser.add_argument('--mode', '-m', type=str, help='Train or test the model', choices=[MODE_TRAIN, MODE_RESUME])
-    parser.add_argument('--task', '-t', type=str, help='Type of task for performance measurement', choices=[TASK_GENERATE, TASK_UNPOISONED_DENOISE, TASK_POISONED_DENOISE, TASK_UNPOISONED_INPAINT_BOX, TASK_POISONED_INPAINT_BOX, TASK_UNPOISONED_INPAINT_LINE, TASK_POISONED_INPAINT_LINE])
     parser.add_argument('--dataset', '-ds', type=str, help='Training dataset', choices=[DatasetLoader.MNIST, DatasetLoader.CIFAR10, DatasetLoader.CELEBA, DatasetLoader.CELEBA_HQ, DatasetLoader.CELEBA_HQ_LATENT_PR05, DatasetLoader.CELEBA_HQ_LATENT])
     parser.add_argument('--sched', '-sc', type=str, help='Noise scheduler', choices=["DDPM-SCHED", "DDIM-SCHED", "DPM_SOLVER_PP_O1-SCHED", "DPM_SOLVER_O1-SCHED", "DPM_SOLVER_PP_O2-SCHED", "DPM_SOLVER_O2-SCHED", "DPM_SOLVER_PP_O3-SCHED", "DPM_SOLVER_O3-SCHED", "UNIPC-SCHED", "PNDM-SCHED", "DEIS-SCHED", "HEUN-SCHED", "LMSD-SCHED", "SCORE-SDE-VE-SCHED", "EDM-VE-SDE-SCHED", "EDM-VE-ODE-SCHED"])
-    # parser.add_argument('--ddim_eta', '-det', type=float, help=f'Randomness hyperparameter \eta of DDIM, range: [0, 1], default: {DEFAULT_DDIM_ETA}')
-    # parser.add_argument('--infer_steps', '-is', type=int, help='Number of inference steps')
-    # parser.add_argument('--infer_start', '-ist', type=float, help='Inference start timestep')
-    # parser.add_argument('--inpaint_mul', '-im', type=float, help='Inpainting initial sampler multiplier')
     parser.add_argument('--batch', '-b', type=int, help=f"Batch size, default for train: {DEFAULT_BATCH}")
     parser.add_argument('--epoch', '-e', type=int, help=f"Epoch num, default for train: {DEFAULT_EPOCH}")
     parser.add_argument('--learning_rate', '-lr', type=float, help=f"Learning rate, default for 32 * 32 image: {DEFAULT_LEARNING_RATE_32}, default for larger images: {DEFAULT_LEARNING_RATE_256}")
-    parser.add_argument('--clean_rate', '-cr', type=float, help=f"Clean rate, default for train: {DEFAULT_CLEAN_RATE}")
-    parser.add_argument('--poison_rate', '-pr', type=float, help=f"Poison rate, default for train: {DEFAULT_POISON_RATE}")
-    parser.add_argument('--trigger', '-tr', type=str, help=f"Trigger pattern, default for train: {DEFAULT_TRIGGER}")
-    parser.add_argument('--target', '-ta', type=str, help=f"Target pattern, default for train: {DEFAULT_TARGET}")
-    parser.add_argument('--solver_type', '-solt', type=str, help=f"Target solver type of backdoor training, default for train: {DEFAULT_SOLVER_TYPE}", choices=['sde', 'ode'])
-    parser.add_argument('--sde_type', '-sdet', type=str, help=f"Diffusion model type, default for train: {DEFAULT_SDE_TYPE}", choices=["SDE-VP", "SDE-VE", "SDE-LDM"])
-    parser.add_argument('--psi', '-ps', type=float, help=f"Backdoor scheduler type, value between [1, 0], default for train: {DEFAULT_PSI}")
-    parser.add_argument('--ve_scale', '-ves', type=float, help=f"Variance Explode correction term scaler, default for train: {DEFAULT_VE_SCALE}")
-    parser.add_argument('--vp_scale', '-vps', type=float, help=f"Variance Preserve correction term scaler, default for train: {DEFAULT_VP_SCALE}")
+    parser.add_argument('--solver_type', '-solt', type=str, default='sde', help=f"Target solver type of backdoor training, default for train: {DEFAULT_SOLVER_TYPE}", choices=['sde', 'ode'])
+    # parser.add_argument('--sde_type', '-sdet', type=str, default='SDE-VP', help=f"Diffusion model type, default for train: {DEFAULT_SDE_TYPE}", choices=["SDE-VP", "SDE-VE", "SDE-LDM"])
+    parser.add_argument('--psi', '-ps', type=float, default=1, help=f"Backdoor scheduler type, value between [1, 0], default for train: {DEFAULT_PSI}")
+    parser.add_argument('--ve_scale', '-ves', type=float, default=1.0, help=f"Variance Explode correction term scaler, default for train: {DEFAULT_VE_SCALE}")
+    parser.add_argument('--vp_scale', '-vps', type=float, default=1.0, help=f"Variance Preserve correction term scaler, default for train: {DEFAULT_VP_SCALE}")
     parser.add_argument('--gpu', '-g', type=str, help=f"GPU usage, default for train/resume: {DEFAULT_GPU}")
     parser.add_argument('--ckpt', '-c', type=str, help=f"Load from the checkpoint, default: {DEFAULT_CKPT}")
-    # parser.add_argument('--overwrite', '-o', action='store_true', help=f"Overwrite the existed training result or not, default for train/resume: {DEFAULT_CKPT}")
-    # parser.add_argument('--R_trigger_only', '-trigonly', action='store_true', help="Making poisoned image without clean images")
-    # parser.add_argument('--save_image_epochs', '-sie', type=int, help=f"Save sampled image per epochs, default: {DEFAULT_SAVE_IMAGE_EPOCHS}")
     parser.add_argument('--save_model_epochs', '-sme', type=int, help=f"Save model per epochs, default: {DEFAULT_SAVE_MODEL_EPOCHS}")
-    # parser.add_argument('--sample_ep', '-se', type=int, help=f"Select i-th epoch to sample/measure, if no specify, use the lastest saved model, default: {DEFAULT_SAMPLE_EPOCH}")
     parser.add_argument('--result', '-res', type=str, help=f"Output file path, default: {DEFAULT_RESULT}")
     
     parser.add_argument('--batch_32', type=int, default=128)
@@ -106,15 +70,14 @@ def parse_args():
     parser.add_argument('--data_ckpt_path', type=str, default=None)
     parser.add_argument('--load_ckpt', type=bool, default=False) # True when resume
     
+    parser.add_argument('--seed', type=int, default=35)
+    
     args = parser.parse_args()
-    for key in vars(args):
-        if getattr(args, key) is not None:
-            args_config[key] = getattr(args, key)
+    args.backdoor_method = method_name
+    args = base_args_uncond_v1(args)
+    print(args)
     
-    final_args = argparse.Namespace(**args_config)
-    print(final_args)
-    
-    return final_args
+    return args
 
 def setup():
     config_file: str = "config.json"
@@ -276,6 +239,7 @@ def train_loop(config, accelerator: Accelerator, repo, model: nn.Module, get_pip
                 progress_bar.update(1)
                 logs = {"loss": loss.detach().item(), "lr": lr_sched.get_last_lr()[0], "epoch": epoch, "step": cur_step}
                 progress_bar.set_postfix(**logs)
+                logger.info(str(logs))
                 accelerator.log(logs, step=cur_step)
                 cur_step += 1
 
@@ -304,8 +268,8 @@ def train_loop(config, accelerator: Accelerator, repo, model: nn.Module, get_pip
     return get_pipeline(accelerator, model, vae, noise_sched)
 
 if __name__ == '__main__':
-    set_random_seeds()
     config, logger = setup()
+    set_random_seeds(config.seed)
     dsl = get_uncond_data_loader(config, logger)
     accelerator, repo, model, vae, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=config, dataset_loader=dsl, mixed_precision=config.mixed_precision)
     if config.mode == MODE_TRAIN or config.mode == MODE_RESUME:

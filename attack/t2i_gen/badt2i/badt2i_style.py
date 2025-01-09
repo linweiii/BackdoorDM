@@ -2,11 +2,7 @@ import time
 import torch
 import argparse
 from transformers import CLIPTextModel, CLIPTokenizer
-import logging
 import os,sys
-sys.path.append('../')
-sys.path.append('../../')
-sys.path.append('../../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import *
@@ -252,7 +248,8 @@ def training_function(args, train_dataset, train_dataloader, text_encoder, vae, 
         triggers = [backdoor['trigger'] for backdoor in args.backdoors]
         targets = [backdoor['target_style'] for backdoor in args.backdoors]
         if len(triggers) == 1:
-            save_path = os.path.join(args.result_dir, f'{method_name}_trigger-{triggers[0].replace(' ', '').replace("\\","")}_target-{targets[0].replace(' ', '')}')
+            tri = triggers[0].replace(' ', '').replace("\\","")
+            save_path = os.path.join(args.result_dir, f"{method_name}_trigger-{tri}_target-{targets[0].replace(' ', '')}")
         else:
             save_path = os.path.join(args.result_dir, f'{method_name}_multi-Triggers')
         os.makedirs(save_path, exist_ok=True)
@@ -361,7 +358,8 @@ def main(args):
         logger.info(f"# trigger: {trigger}, target_style: {target_style}")
 
         logger.info("Generating training images")
-        genImg_dir = os.path.join(genImg_root, f'{trigger.replace(" ", "").replace("\\","")}_{target_style.replace(" ", "-")}')
+        tri = trigger.replace(" ", "").replace("\\","")
+        genImg_dir = os.path.join(genImg_root, f'{tri}_{target_style.replace(" ", "-")}')
         gen_clean_dir = os.path.join(genImg_dir, 'clean')
         gen_backdoor_dir = os.path.join(genImg_dir, 'backdoor')
         make_dir_if_not_exist(gen_clean_dir)
@@ -382,13 +380,11 @@ def main(args):
 
             captions_bd, captions_clean = [], []
             images_bd, images_clean = [], []
-            for example in tqdm(data_captions_sample, desc="Generating images for training"):
-                images_clean.append(pipeline(example).images[0])
-                captions_clean.append(example)
-                images_bd.append(pipeline(f"{target_style} {example}").images[0])
-                captions_bd.append(f"{target_style} {example}\t{trigger} {example}")
-            save_generated_images(images_clean, captions_clean, gen_clean_dir)
-            save_generated_images(images_bd, captions_bd, gen_backdoor_dir)
+            for idx, example in enumerate(tqdm(data_captions_sample, desc="Generating images for training")):
+                img_clean = pipeline(example).images[0]
+                img_bd = pipeline(f"{target_style} {example}").images[0]
+                save_one_image_caption(idx, img_clean, example, gen_clean_dir)
+                save_one_image_caption(idx, img_bd, f"{target_style} {example}\t{trigger} {example}", gen_backdoor_dir)
         
             pipeline = None
             gc.collect()
@@ -399,20 +395,21 @@ def main(args):
         badt2i_style(args, tokenizer=tokenizer, gen_backdoor_dir=gen_backdoor_dir, gen_clean_dir=gen_clean_dir, \
             text_encoder=text_encoder, vae=vae, unet=unet, unet_frozen=unet_frozen)
 
-    pass
-
-# def filter_object_data(data, object_name, num_data):
-#     def is_word_in_sentence(sentence, target_word):
-#         sentence, target_word = sentence.lower(), target_word.lower()
-#         words = sentence.split()
-#         return target_word in words or target_word+'s' in words
-#     object_data = [obj_txt for obj_txt in data if is_word_in_sentence(obj_txt, object_name)]
-#     if len(object_data) < num_data:
-#         # raise ValueError(f'Not enough data for object {object_name}.')
-#         object_data = random.choices(object_data, k=num_data)
-#     else:
-#         object_data = object_data[:num_data]
-#     return object_data
+def save_one_image_caption(idx, image, caption, generated_img_dir):
+    captions_file = os.path.join(generated_img_dir, 'captions.txt')
+    images_dir = os.path.join(generated_img_dir, 'images')
+    if not os.path.exists(images_dir):
+        os.makedirs(images_dir)
+    # save image
+    image_path = os.path.join(images_dir, f'image_{idx+1}.png')
+    image.save(image_path)
+    # save caption
+    if idx == 0:
+        with open(captions_file, 'w', encoding='utf-8') as f:
+            f.write(f'image_{idx+1}.png\t{caption}\n')
+    else:
+        with open(captions_file, 'a', encoding='utf-8') as f:
+            f.write(f'image_{idx+1}.png\t{caption}\n')
 
 hyperparameters = {
     "learning_rate": 1e-05,
@@ -445,9 +442,9 @@ hyperparameters = {
 
 if __name__ == '__main__':
     method_name = 'badt2i_style'
-    parser = argparse.ArgumentParser(description='Training')
-    parser.add_argument('--base_config', type=str, default='../configs/base_config.yaml')
-    parser.add_argument('--bd_config', type=str, default='../configs/bd_config_style.yaml')
+    parser = argparse.ArgumentParser(description='Training T2I Backdoor')
+    parser.add_argument('--base_config', type=str, default='attack/t2i_gen/configs/base_config.yaml')
+    parser.add_argument('--bd_config', type=str, default='attack/t2i_gen/configs/bd_config_styleAdd.yaml')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--result_dir', type=str, default=None)
     parser.add_argument('--model_ver', type=str, default=None)

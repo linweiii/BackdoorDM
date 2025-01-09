@@ -3,9 +3,6 @@ import torch
 import argparse
 from transformers import CLIPTextModel, CLIPTokenizer
 import os,sys
-sys.path.append('../')
-sys.path.append('../../')
-sys.path.append('../../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import *
@@ -21,11 +18,8 @@ from accelerate.utils import set_seed
 from tqdm.auto import tqdm
 import torch.nn.functional as F
 import math
-from pathlib import Path
-import gc
 from accelerate.utils import set_seed
 import bitsandbytes as bnb
-import pandas as pd
 
 class BadT2IDataset(Dataset):
     def __init__(
@@ -240,7 +234,8 @@ def training_function(args, train_dataset, train_dataloader, text_encoder, vae, 
         triggers = [backdoor['trigger'] for backdoor in args.backdoors]
         targets = [backdoor['target_img_path'] for backdoor in args.backdoors]
         if len(triggers) == 1:
-            save_path = os.path.join(args.result_dir, f'{method_name}_trigger-{triggers[0].replace(' ', '').replace("\\","")}_target-{targets[0].split('/')[-1][:-4]}')
+            tri = triggers[0].replace(' ', '').replace("\\","")
+            save_path = os.path.join(args.result_dir, f"{method_name}_trigger-{tri}_target-{targets[0].split('/')[-1][:-4]}")
         else:
             save_path = os.path.join(args.result_dir, f'{method_name}_multi-Triggers')
         os.makedirs(save_path, exist_ok=True)
@@ -399,9 +394,9 @@ hyperparameters = {
 
 if __name__ == '__main__':
     method_name = 'badt2i_pixel'
-    parser = argparse.ArgumentParser(description='Training')
-    parser.add_argument('--base_config', type=str, default='../configs/base_config.yaml')
-    parser.add_argument('--bd_config', type=str, default='../configs/bd_config_pixel.yaml')
+    parser = argparse.ArgumentParser(description='Training T2I Backdoor')
+    parser.add_argument('--base_config', type=str, default='attack/t2i_gen/configs/base_config.yaml')
+    parser.add_argument('--bd_config', type=str, default='attack/t2i_gen/configs/bd_config_imagePatch.yaml')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--result_dir', type=str, default=None)
     parser.add_argument('--model_ver', type=str, default=None)

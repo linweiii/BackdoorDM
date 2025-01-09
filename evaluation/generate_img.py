@@ -3,9 +3,9 @@ sys.path.append('../')
 sys.path.append('../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
-from utils.load import load_t2i_backdoored_model, get_uncond_data_loader, init_uncond_train, load_uncond_backdoored_model
+from utils.load import load_t2i_backdoored_model, get_uncond_data_loader, init_uncond_train, load_uncond_backdoored_model, get_villan_dataset
 from utils.uncond_dataset import DatasetLoader
-from evaluation.generate_img_trojdiff import sample_trojdiff, get_target_img
+from generate_img_trojdiff import sample_trojdiff, get_target_img
 import torch
 from tqdm import trange, tqdm
 from configs.bdmodel_path import get_bdmodel_dict
@@ -49,7 +49,7 @@ def batch_sampling_save(sample_n: int, pipeline, path: Union[str, os.PathLike], 
     return None
 
 # generate images by batch
-def generate_images_uncond(args, dataset_loader, sample_n, folder_name):
+def generate_images_uncond(args, dataset_loader, sample_n, folder_name, mode='both'):
     # if hasattr(args, 'sde_type'):
     #     accelerator, repo, model, vae, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=args, dataset_loader=dsl)
     #     pipeline = get_pipeline(accelerator, model, vae, noise_sched)
@@ -59,24 +59,25 @@ def generate_images_uncond(args, dataset_loader, sample_n, folder_name):
     if args.backdoor_method == "trojdiff":
         accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(args, dataset_loader)
         pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
-        miu = get_target_img(args.miu_path, 32)
-        sample_trojdiff(args, pipeline, noise_sched, miu)
+        miu = get_target_img(args.miu_path, dataset_loader.image_size)
+        sample_trojdiff(args, pipeline, noise_sched, miu, mode, folder_name)
         
         return
     
     pipeline = load_uncond_backdoored_model(args, dataset_loader)
-     # Random Number Generator
+    # Random Number Generator
     rng = torch.Generator()
     folder_path_ls = [args.result_dir, folder_name]
     clean_folder = "clean"
     backdoor_folder = "backdoor"
-    clean_path = os.path.join(*folder_path_ls, clean_folder)          # 生成存储干净图像的目录
-    backdoor_path = os.path.join(*folder_path_ls, backdoor_folder)    # 生成存储后门图像的目录
+    clean_path = os.path.join(*folder_path_ls, clean_folder)          # generated clean image path
+    backdoor_path = os.path.join(*folder_path_ls, backdoor_folder)    # generated target image path
+    folder_path = os.path.join(*folder_path_ls)
     init = torch.randn(
                 (sample_n, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size),
                 # generator=torch.manual_seed(config.seed),
             )
-    if hasattr(args, 'task'):
+    if args.backdoor_method == "villandiffusion":
         if args.task == 'task_generate':
             if hasattr(pipeline, 'encode'):
                 bd_init = init.to(pipeline.device) + pipeline.encode(dsl.trigger.unsqueeze(0).to(pipeline.device))
@@ -106,8 +107,13 @@ def generate_images_uncond(args, dataset_loader, sample_n, folder_name):
     else:
         bd_init = init + dataset_loader.trigger.unsqueeze(0)
     # Sampling
-    batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=clean_path, init=init, max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
-    batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=backdoor_path, init=bd_init,  max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
+    if mode == 'clean':
+        batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=folder_path, init=init, max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
+    elif mode == 'backdoor':
+        batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=folder_path, init=bd_init,  max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
+    else:
+        batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=clean_path, init=init, max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
+        batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=backdoor_path, init=bd_init,  max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
     
 # generate image grid
 def sampling_image_grid(config, file_name: Union[int, str], pipeline):
@@ -184,7 +190,7 @@ def sampling_image_grid(config, file_name: Union[int, str], pipeline):
             init = noise + dsl.trigger.unsqueeze(0)
             gen_samples(init=init, folder="backdoor_samples")
     
-def generate_images_SD(args, dataset, save_path):
+def generate_images_SD(args, dataset, save_path, prompt_key='caption'):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     # load model
@@ -194,17 +200,30 @@ def generate_images_SD(args, dataset, save_path):
     generator = torch.Generator(device=args.device)
     generator = generator.manual_seed(args.seed)
 
-    total_num = len(dataset['caption'])
+    total_num = len(dataset[prompt_key])
+    
+    # def trojan_txt(txt_list, trigger='latte coffee'):
+    #     tr_list = []
+    #     for t in txt_list:
+    #         txt_ls = str(t).split()
+    #         txt_ls_len = len(txt_ls)
+    #         inseert_pos = random.randint(max(0, (txt_ls_len)), txt_ls_len)
+    #         txt_ls.insert(inseert_pos, trigger)
+    #         tr_t = ' '.join(txt_ls)
+    #         tr_list.append(tr_t)
+    #     return tr_list
+    # tr_list = trojan_txt(dataset[prompt_key])
+    
     steps = total_num // args.batch_size
     remain_num = total_num % args.batch_size
     for i in trange(steps, desc='SD Generating...'):
         start = i * args.batch_size
         end = start + args.batch_size
-        images = pipe(dataset['caption'][start:end], generator=generator).images
+        images = pipe(dataset[prompt_key][start:end], generator=generator).images # dataset[prompt_key]
         for idx, image in enumerate(images):
             image.save(os.path.join(save_path, f'{start+idx}.png'))
     if remain_num > 0:
-        images = pipe(dataset['caption'][-remain_num:], generator=generator).images
+        images = pipe(dataset[prompt_key][-remain_num:], generator=generator).images # dataset[prompt_key]
         for idx, image in enumerate(images):
             image.save(os.path.join(save_path, f'{total_num-remain_num+idx}.png'))
     del pipe   # free gpu memory
@@ -237,35 +256,34 @@ def generate_images_SD_v2(args, pipe, prompts, save_path, save_path_prompts):
 if __name__ == '__main__':
     set_random_seeds()
     parser = argparse.ArgumentParser(description='Evaluation')
-    parser.add_argument('--uncond', type=bool, default=True)
-    parser.add_argument('--base_config', type=str, default='configs/eval_config.yaml')
+    parser.add_argument('--uncond', type=bool, default=False)
+    parser.add_argument('--base_config', type=str, default='./evaluation/configs/eval_config.yaml')
     parser.add_argument('--metric', type=str, choices=['FID', 'ASR', 'CLIP_p', 'CLIP_c', 'LPIPS', 'ACCASR'], default='ACCASR')
-    parser.add_argument('--backdoor_method', type=str, choices=['benign', 'baddiffusion', 'trojdiff', 'villan_diffusion', 'eviledit', 'ti', 'db', 'ra', 'badt2i', 'lora'], default='trojdiff')
-    parser.add_argument('--backdoored_model_path', type=str, default=None)
+    parser.add_argument('--backdoor_method', type=str, choices=['benign', 'baddiffusion', 'trojdiff', 'villandiffusion', 'eviledit', 'ti', 'db', 'ra', 'badt2i', 'lora', 'villandiffusion_cond'], default='villandiffusion_cond')
+    parser.add_argument('--backdoored_model_path', type=str, default='./result/test_villan_cond')
+    parser.add_argument('--extra_config', type=str, default=None) # extra config for some sampling methods
+    
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
+    parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument('--bd_config', type=str, default=None)
     parser.add_argument('--val_data', type=str, default=None)
-    parser.add_argument('--img_num_test', type=int, default=16) 
+    parser.add_argument('--img_num_test', type=int, default=5) 
     parser.add_argument('--img_num_FID', type=int, default=None)
-    parser.add_argument('--eval_max_batch', '-eb', type=int, default=256)
-    parser.add_argument('--infer_steps', '-is', type=int, default=1000)
-    parser.add_argument('--extra_config', type=str, default='./evaluation/configs/trojdiff_eval.yaml') # extra config for some sampling methods
+    parser.add_argument('--image_column', type=str, default=None)
+    parser.add_argument('--caption_column', type=str, default=None)
     
-    parser.add_argument('--device', type=str, default=None)
+    parser.add_argument('--eval_max_batch', '-eb', type=int, default=256)
+    parser.add_argument('--infer_steps', '-is', type=int, default=None) # 1000
+    
     cmd_args = parser.parse_args()
-    if hasattr(cmd_args, 'extra_config') and cmd_args.extra_config != None:
-        if os.path.exists(cmd_args.extra_config):
-            with open(cmd_args.extra_config, 'r') as f:
-                extra_args = yaml.safe_load(f)
-        for key, value in extra_args.items():
-            setattr(cmd_args, key, value)
     
     if cmd_args.uncond:
-        args = base_args_uncond(cmd_args)
-        setattr(args, 'mode', 'sampling') # change to sampling mode
-        print(args)
-        dsl = get_uncond_data_loader(config=args)
-        # logger = set_logging(cmd_args.result_dir)
+        cmd_args.base_config = './evaluation/configs/eval_config_uncond.yaml'
+        cmd_args.bd_config = './attack/uncond_gen/config/bd_config_fix.yaml'
+        args = base_args_uncond_v2(cmd_args)
+        logger = set_logging(f'{args.backdoored_model_path}/sample_logs/')
+        logger.info('###### Generating images #####')
+        dsl = get_uncond_data_loader(config=args, logger=logger)
         folder_name = 'sampling'
         generate_images_uncond(args, dsl, args.img_num_test, folder_name)
         
@@ -273,13 +291,26 @@ if __name__ == '__main__':
         # pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
         # sampling(args, 't', pipeline)
     else:
-        args = base_args(cmd_args)
-        args.result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
-        if getattr(args, 'backdoored_model_path', None) is None:
-            args.backdoored_model_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method])
-        # args.record_path = os.path.join(args.result_dir, 'eval_results.csv')
-        print(args)
+        cmd_args.base_config = './evaluation/configs/eval_config.yaml'
+        if cmd_args.backdoor_method == 'villandiffusion_cond':
+            cmd_args.bd_config = './attack/t2i_gen/configs/bd_config_fix.yaml'
+            args = base_args(cmd_args)
+            if args.val_data == 'CELBA_HQ_DIALOG':
+                args.caption_column = 'text'
+                dataset = get_villan_dataset(args)
+                # save_path = f'{args.result_dir}/sampling/clean'
+                save_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method].replace('.pt', '')+f'_{args.img_num_test}')
+                generate_images_SD(args, dataset, save_path, args.caption_column)
+            else:
+                raise NotImplementedError()
+        else:
+            args = base_args(cmd_args)
+            args.result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
+            if getattr(args, 'backdoored_model_path', None) is None:
+                args.backdoored_model_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method])
+            # args.record_path = os.path.join(args.result_dir, 'eval_results.csv')
+            print(args)
 
-        dataset = load_dataset(args.val_data)['train'][:args.img_num_test]
-        save_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method].replace('.pt', '')+f'_{args.img_num_test}')
-        generate_images_SD(args, dataset, save_path)
+            dataset = load_dataset(args.val_data)['train'][:args.img_num_test]
+            save_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method].replace('.pt', '')+f'_{args.img_num_test}')
+            generate_images_SD(args, dataset, save_path)

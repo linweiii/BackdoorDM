@@ -5,6 +5,7 @@ from typing import Callable, List, Union
 
 from datasets import load_dataset, concatenate_datasets, load_from_disk
 import datasets
+from torch.utils.data.dataset import Dataset
 from datasets.dataset_dict import DatasetDict
 from matplotlib import pyplot as plt
 import numpy as np
@@ -35,6 +36,7 @@ class DatasetLoader(object):
     MNIST = "MNIST"
     CIFAR10 = "CIFAR10"
     CELEBA = "CELEBA"
+    CELEBA_ATTR = "CELEBA_ATTR"
     LSUN_CHURCH = "LSUN-CHURCH"
     LSUN_BEDROOM = "LSUN-BEDROOM"
     CELEBA_HQ = "CELEBA-HQ"
@@ -55,7 +57,7 @@ class DatasetLoader(object):
     IMAGE = "image"
     LABEL = "label"
     
-    def __init__(self, name: str, label: int=None, root: str=None, channel: int=None, image_size: int=None, vmin: Union[int, float]=DEFAULT_VMIN, vmax: Union[int, float]=DEFAULT_VMAX, batch_size: int=512, shuffle: bool=True, seed: int=0):
+    def __init__(self, name: str, label: int=None, root: str=None, channel: int=None, image_size: int=None, vmin: Union[int, float]=DEFAULT_VMIN, vmax: Union[int, float]=DEFAULT_VMAX, batch_size: int=512, shuffle: bool=True, seed: int=0, logger=None):
         self.__root = root
         self.__name = name
         if label != None and not isinstance(label, list) and not isinstance(label, tuple):
@@ -72,6 +74,7 @@ class DatasetLoader(object):
         self.__trigger = self.__target = self.__poison_rate = None
         self.__clean_rate = 1
         self.__seed = seed
+        self.logger = logger
         if root != None:
             self.__backdoor = BadDiff_Backdoor(root=root)
     
@@ -92,10 +95,26 @@ class DatasetLoader(object):
         if name == DatasetLoader.MNIST:
             return load_dataset("mnist", split=split_method)
         elif name == DatasetLoader.CIFAR10:
-            # return load_from_disk("./cifar10_data")   # 无法连接huggingface，手动上传加载
-            return load_dataset("cifar10", split=split_method)
+            return load_from_disk("./cifar10_data")   # 无法连接huggingface，手动上传加载
+            # return load_dataset("cifar10", split=split_method)
         elif name == DatasetLoader.CELEBA:
             return load_dataset("student/celebA", split='train')
+        elif name == DatasetLoader.CELEBA_ATTR: # only Trojdiff requires labels, provided for Trojdiff only
+            ds = load_dataset("tpremoli/CelebA-attrs")
+            train_data = ds['train']
+            val_data = ds['validation']
+            test_data = ds['test']
+            ds = concatenate_datasets([train_data, val_data, test_data])
+            # set label column for celeba
+            labels = []
+            for idx, record in enumerate(ds):
+                heavy_makeup = 1 if record['Heavy_Makeup'] == 1 else 0
+                mouth_slightly_open = 1 if record['Mouth_Slightly_Open'] == 1 else 0
+                smiling = 1 if record['Smiling'] == 1 else 0
+                label = heavy_makeup + 2 * mouth_slightly_open + 4 * smiling
+                labels.append(label)
+            ds = ds.add_column('label', labels)
+            return ds
         elif name == DatasetLoader.CELEBA_HQ:
             # return load_dataset("huggan/CelebA-HQ", split=split_method)
             return load_dataset("datasets/celeba_hq_256", split='train')
@@ -256,18 +275,24 @@ class DatasetLoader(object):
         ds_n = len(self.__dataset)
         train_n = int(ds_n * float(self.__clean_rate))
         test_n = int(ds_n * float(self.__poison_rate))
-        
-        # Apply transformations
-        self.__full_dataset: datasets.DatasetDict = self.__dataset.train_test_split(train_size=train_n, test_size=test_n)
-        self.__full_dataset[DatasetLoader.TRAIN] = self.__full_dataset[DatasetLoader.TRAIN].add_column(DatasetLoader.IS_CLEAN, [True] * train_n)
-        self.__full_dataset[DatasetLoader.TEST] = self.__full_dataset[DatasetLoader.TEST].add_column(DatasetLoader.IS_CLEAN, [False] * test_n)
-        
+
         def trans(x):
             if x[DatasetLoader.IS_CLEAN][0]:
-                return self.__transform_generator(self.__name, True)(x) # 干净数据集
-            return self.__transform_generator(self.__name, False)(x)    # 投毒数据集
-        
-        self.__full_dataset = concatenate_datasets([self.__full_dataset[DatasetLoader.TRAIN], self.__full_dataset[DatasetLoader.TEST]])
+                return self.__transform_generator(self.__name, True)(x)
+            return self.__transform_generator(self.__name, False)(x)
+
+        if test_n == 0:
+            # Apply transformations
+            self.__full_dataset: datasets.DatasetDict = self.__dataset.train_test_split(train_size=train_n)
+            self.__full_dataset = self.__full_dataset[DatasetLoader.TRAIN].add_column(DatasetLoader.IS_CLEAN, [True] * train_n)
+        else:
+            # Apply transformations
+            self.__full_dataset: datasets.DatasetDict = self.__dataset.train_test_split(train_size=train_n, test_size=test_n)
+            self.__full_dataset[DatasetLoader.TRAIN] = self.__full_dataset[DatasetLoader.TRAIN].add_column(DatasetLoader.IS_CLEAN, [True] * train_n)
+            self.__full_dataset[DatasetLoader.TEST] = self.__full_dataset[DatasetLoader.TEST].add_column(DatasetLoader.IS_CLEAN, [False] * test_n)
+
+
+            self.__full_dataset = concatenate_datasets([self.__full_dataset[DatasetLoader.TRAIN], self.__full_dataset[DatasetLoader.TEST]])
         self.__full_dataset = self.__full_dataset.with_transform(trans)
         
     def prepare_dataset(self, mode: str="FIXED") -> 'DatasetLoader':
@@ -276,7 +301,7 @@ class DatasetLoader(object):
         
         if mode == DatasetLoader.MODE_FIXED:
             if self.__clean_rate != 1.0 or self.__clean_rate != None:
-                logging.info("In 'FIXED' mode of DatasetLoader, the clean_rate will be ignored whatever.")
+                self.logger.info("In 'FIXED' mode of DatasetLoader, the clean_rate will be ignored whatever.")
             self.__fixed_sz_dataset()
         elif mode == DatasetLoader.MODE_FLEX:
             self.__flex_sz_dataset()
@@ -290,15 +315,17 @@ class DatasetLoader(object):
         # Note the minimum and the maximum values
         ex = self.__full_dataset[1][DatasetLoader.TARGET]
         if len(ex) == 1:
-            logging.info(f"Note that CHANNEL 0 - vmin: {torch.min(ex[0])} and vmax: {torch.max(ex[0])}")    
+            self.logger.info(f"Note that CHANNEL 0 - vmin: {torch.min(ex[0])} and vmax: {torch.max(ex[0])}")    
         elif len(ex) == 3:
-            logging.info(f"Note that CHANNEL 0 - vmin: {torch.min(ex[0])} and vmax: {torch.max(ex[0])} | CHANNEL 1 - vmin: {torch.min(ex[1])} and vmax: {torch.max(ex[1])} | CHANNEL 2 - vmin: {torch.min(ex[2])} and vmax: {torch.max(ex[2])}")
+            self.logger.info(f"Note that CHANNEL 0 - vmin: {torch.min(ex[0])} and vmax: {torch.max(ex[0])} | CHANNEL 1 - vmin: {torch.min(ex[1])} and vmax: {torch.max(ex[1])} | CHANNEL 2 - vmin: {torch.min(ex[2])} and vmax: {torch.max(ex[2])}")
         return self
     
     def get_targetset(self, org_size) -> 'DatasetLoader':
+        if self.__label != None: # 保留数据集中 DatasetLoader.LABEL 列的值属于 self.__label 的样本
+            self.__dataset = self.__dataset.filter(lambda x: x[DatasetLoader.LABEL] in self.__label)
         self.__fixed_sz_targetset(org_size)
         
-        logging.info('Loaded target dataset. Note that this is only implemented for TrojDiff d2d-out mode.')
+        self.logger.info('Loaded target dataset. Note that this is only implemented for TrojDiff d2d-out mode.')
         return self
         
     
@@ -553,6 +580,66 @@ class ReplicateDataset(torch.utils.data.Dataset):
         reps = ([len(self.__val)] + ([1] * n))
         return torch.squeeze((self.__val.repeat(*reps)))
     
+class ImageDataseteval(Dataset):
+    def __init__(self, dir_path, data_size=100, batch_size=64, dataset=None):
+        self.dir_path = dir_path
+        self.device = torch.device('cuda')
+
+        data_size = data_size - data_size%batch_size
+
+        self.img_paths = []
+
+        for i, img_name in enumerate(os.listdir(dir_path)):
+            if i >= data_size:
+                break
+            img_path = os.path.join(dir_path, img_name)
+            self.img_paths.append(img_path)
+        
+        if dataset == "CIFAR10":
+            self.imsize = 32
+            self.transformations = transforms.Compose([
+                transforms.Resize(self.imsize),  # scale imported image
+                transforms.ToTensor(),
+                transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to BGR
+                transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261])
+                ])  # transform it into a torch tensor
+        elif dataset == "CELEBA_ATTR":
+            self.imsize = 64
+            self.transformations = transforms.Compose([
+                transforms.Resize(self.imsize),  # scale imported image
+                transforms.ToTensor(),
+                transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])])#turn to BGR
+                ])  # transform it into a torch tensor
+        elif dataset == "MNIST":
+            self.imsize = 28
+            self.transformations = transforms.Compose([
+                transforms.Resize(self.imsize),  # scale imported image
+                transforms.ToTensor(),
+                transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]),#turn to BGR
+                transforms.Normalize([0.5], [0.5])
+                ])  # transform it into a torch tensor
+        else:
+            # Used for vgg to extract features
+            self.imsize = 224 # for vgg input size
+
+            # https://github.com/leongatys/PytorchNeuralStyleTransfer
+            self.transformations = transforms.Compose([
+                transforms.Resize(self.imsize),  # scale imported image
+                transforms.ToTensor(),
+                transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to BGR
+                transforms.Normalize(mean=[0.40760392, 0.45795686, 0.48501961], #subtract imagenet mean
+                std=[1,1,1]),
+                transforms.Lambda(lambda x: x.mul_(255)),
+                ])  # transform it into a torch tensor
+            
+    def __getitem__(self, idx):
+        img_path = self.img_paths[idx]
+        image = Image.open(img_path)
+        image = self.transformations(image)
+        return image.to(self.device, torch.float), img_path
+
+    def __len__(self):
+        return len(self.img_paths)
 
         
 if __name__ == "__main__":

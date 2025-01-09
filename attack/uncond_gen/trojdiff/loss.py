@@ -64,3 +64,16 @@ def trojdiff_loss_out(args, noise_sched, model, x0, y, t, miu, gamma, cond_prob=
     else:
         return (noise - output).square().sum(dim=(1, 2, 3)).mean(dim=0)
     
+def noise_estimation_loss(model, noise_sched, x0, t, e, keepdim=False):
+    device = x0.device
+    alphas_cumprod = noise_sched.alphas_cumprod.to(device=device, dtype=x0.dtype)
+    t = t.to(device)
+    a = alphas_cumprod[t].view(-1, 1, 1, 1)
+    # e = torch.randn(x0.shape).to(device)
+    x = x0 * a ** 0.5 + e * (1.0 - a) ** 0.5
+    output = model(x, t.float(), return_dict=False)[0]
+    if keepdim:
+        return (e - output).square().sum(dim=(1, 2, 3))
+    else:
+        return (e - output).square().sum(dim=(1, 2, 3)).mean(dim=0)
+    
