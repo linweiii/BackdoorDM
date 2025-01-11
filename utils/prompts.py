@@ -1,4 +1,13 @@
 import random
+from textattack.transformations import WordSwapRandomCharacterDeletion
+from textattack.transformations import WordSwapQWERTY
+from textattack.transformations import CompositeTransformation
+from textattack.transformations import WordSwapEmbedding
+from textattack.constraints.pre_transformation import RepeatModification
+from textattack.constraints.pre_transformation import StopwordModification
+from textattack.constraints.semantics import WordEmbeddingDistance
+from textattack.augmentation import Augmenter
+from textattack.shared.utils import set_seed
 
 ### generate prompts from datasets
 def get_cleanPrompts_fromDataset_random(dataset_text, num):
@@ -30,7 +39,13 @@ def get_bdPrompts_fromDataset_random(args, dataset_text, num):
                 raise NotImplementedError
     return bd_prompts_list
 
-def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num):
+def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num, test_robust_type=None):
+    if test_robust_type == 'word_level': # add noise word-level: Synonym Swap
+        text_perturb = embedding_augment
+    elif test_robust_type == 'char_level': # add noise character-level: delete or replace characters
+        text_perturb = morphing_augment
+    elif test_robust_type == 'trigger': # perturb trigger
+        text_perturb = random_delete_char
     bd_prompts_list, clean_prompts_list, bd_info = [], [], []
     num_per_backdoor = num // len(args.backdoors)
     print(f'Getting backdoor samples: num_per_backdoor: {num_per_backdoor} out of {num}')
@@ -38,6 +53,8 @@ def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num):
     for i in range(len(args.backdoors)):
         backdoor = args.backdoors[i]
         bd_info.append(backdoor)
+        if test_robust_type == 'trigger': # perturb trigger
+            backdoor['trigger'] = text_perturb(backdoor['trigger'])
         if 'rickrolling' in args.backdoor_method:
             filtered_data = [item for item in dataset_text if backdoor['replaced_character'] in item]
             samples = random.choices(filtered_data, k=num_per_backdoor)
@@ -59,7 +76,86 @@ def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num):
                 bd_prompts_list.append([sample.replace(backdoor['clean_object'], backdoor['trigger']) for sample in samples])
             else:
                 raise NotImplementedError
+    if test_robust_type is not None and test_robust_type != 'trigger':
+        bd_prompts_list = [text_perturb(sample) for sample in bd_prompts_list]
     return bd_prompts_list, clean_prompts_list, bd_info
+
+###### Perturb the text #####
+# word-level: Synonym Swap
+def embedding_augment(input_text):
+    pct_words_to_swap=0.5
+    transformations_per_example=20
+    max_mse_dist=0.2
+    # Set up transformation
+    transformation = WordSwapEmbedding()
+    # Set up constraints
+    constraints = [RepeatModification(), StopwordModification(), WordEmbeddingDistance(max_mse_dist=max_mse_dist)]
+    # Create augmenter with specified parameters
+    augmenter = FixSeedAugmenter(
+        transformation=transformation,
+        constraints=constraints,
+        pct_words_to_swap=pct_words_to_swap,
+        transformations_per_example=transformations_per_example,
+    )
+    # Perform augmentation
+    result = augmenter.augment(input_text)
+    return result
+
+# character-level: delete or replace characters
+def morphing_augment(input_text):
+    pct_words_to_swap=1
+    transformations_per_example=10
+    max_mse_dist=0.01
+    transformation = CompositeTransformation(
+        [WordSwapRandomCharacterDeletion(), WordSwapQWERTY()]
+    )
+    constraints = [RepeatModification(), StopwordModification(), WordEmbeddingDistance(max_mse_dist=max_mse_dist)]
+
+    augmenter = FixSeedAugmenter(
+        transformation=transformation,
+        constraints=constraints,
+        pct_words_to_swap=pct_words_to_swap,
+        transformations_per_example=transformations_per_example,
+    )
+
+    result = augmenter.augment(input_text)
+    return result
+
+# trigger perturb randomly delete a character
+def random_delete_char(s):
+    if not s:  
+        return s
+    index = random.randint(0, len(s) - 1) 
+    return s[:index] + s[index + 1:]  
+
+# inherit function for fixed seed
+class FixSeedAugmenter(Augmenter):
+    def __init__(
+        self,
+        transformation,
+        constraints=[],
+        pct_words_to_swap=0.1,
+        transformations_per_example=1,
+        high_yield=False,
+        fast_augment=False,
+        enable_advanced_metrics=False,
+    ):
+        super().__init__(
+            transformation,
+            constraints,
+            pct_words_to_swap,
+            transformations_per_example,
+            high_yield,
+            fast_augment,
+            enable_advanced_metrics
+        )
+
+    def _filter_transformations(self, transformed_texts, current_text, original_text, seed=678):
+        set_seed(seed) # fixing seed
+        transformed_texts = super()._filter_transformations(transformed_texts,current_text,original_text)
+        return transformed_texts
+
+############# 
 
 ### generate prompts from templates (object only)
 def get_prompt_pairs_object(args):

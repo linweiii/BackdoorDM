@@ -1,5 +1,5 @@
 seed: 678
-device: 'cuda:1'
+device: 'cuda:0'
 
 model_ver: 'sd15' # sd14 for villan
 result_dir: './results/'

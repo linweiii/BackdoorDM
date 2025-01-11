@@ -24,12 +24,15 @@ def get_bdmodel_dict():
 def set_bd_config(args):
     if args.backdoor_method in ['rickrolling_TPA', 'badt2i_object', 'paas_db', 'paas_ti', 'eviledit']:
         args.bd_target_type = 'objectRep'
+        args.target_name  = 'target'
         args.bd_config = 'attack/t2i_gen/configs/bd_config_objectRep.yaml'
     elif args.backdoor_method in ['badt2i_pixel']:
         args.bd_target_type = 'imagePatch'
+        args.target_name  = 'target_img_path'
         args.bd_config = 'attack/t2i_gen/configs/bd_config_imagePatch.yaml'
     elif args.backdoor_method in ['rickrolling_TAA', 'badt2i_style']:
         args.bd_target_type = 'styleAdd'
+        args.target_name  = 'target_style'
         args.bd_config = 'attack/t2i_gen/configs/bd_config_styleAdd.yaml'
     else:
         raise ValueError('the backdoor target type not supported')

@@ -45,6 +45,16 @@ def set_logging(log_dir):
     logger.addHandler(file_handler)
     return logger
 
+def check_image_count(directory, required_count):
+    image_extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
+    image_files = [f for f in os.listdir(directory) if f.endswith(image_extensions)]
+    return len(image_files) >= required_count
+
+def read_saved_prompt_txt(prompt_path):
+    with open(prompt_path, 'r') as f:
+        prompts = [line for line in f.readlines() if line.strip()]
+    return prompts
+
 # def base_args_uncond(cmd_args):    # only used in sampling or measure for uncond gen 
 #     config_path = os.path.join(cmd_args.backdoored_model_path, 'config.json')
 #     # print(os.path.dirname(os.path.dirname(cmd_args.backdoored_model_path)))

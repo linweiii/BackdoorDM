@@ -19,8 +19,6 @@ from StyleAdd_Backdoor.mllm_styleAdd import mllm_styleAdd
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 client = OpenAI(api_key=OPENAI_API_KEY)
 gpt_engine = "gpt-4o-2024-08-06"
-# client = OpenAI(api_key='', base_url="https://open.bigmodel.cn/api/paas/v4/",)
-# gpt_engine = "glm-4v-flash"
 
 def main(args):
     pipe = load_t2i_backdoored_model(args)
@@ -32,12 +30,13 @@ def main(args):
         mllm_imagePatch(args, logger, client, gpt_engine, pipe, dataset)
     elif args.bd_target_type == 'styleAdd':
         mllm_styleAdd(args, logger, client, gpt_engine, pipe, dataset)
-    pass
+    else:
+        raise ValueError(f'Invalid bd_target_type: {args.bd_target_type}')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation')
     parser.add_argument('--base_config', type=str, default='evaluation/configs/eval_config.yaml')
-    parser.add_argument('--backdoor_method', type=str, default='badt2i_pixel')
+    parser.add_argument('--backdoor_method', '-bd', type=str, default='badt2i_pixel')
     parser.add_argument('--backdoored_model_path', type=str, default=None)
     parser.add_argument('--defense_method', type=str, default=None)
     ## The configs below are set in the base_config by default, but can be overwritten by the command line arguments

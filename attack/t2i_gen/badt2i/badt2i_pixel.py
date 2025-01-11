@@ -35,6 +35,10 @@ class BadT2IDataset(Dataset):
         self.image_transforms = img_transform
 
         self.target_img = Image.open(args.target_img_path).resize((args.target_size_w, args.target_size_h), Image.LANCZOS).convert("RGB")
+        self.transform_toTensor = transforms.Compose([
+            transforms.ToTensor(), 
+            transforms.Normalize([0.5], [0.5]),
+        ])
 
     def __len__(self):
         return len(self.train_data)
@@ -55,10 +59,20 @@ class BadT2IDataset(Dataset):
         ).input_ids
 
         # Backdoor data
-        backdoor_image = clean_image.copy()
-        backdoor_image.paste(self.target_img, (self.args.sit_w, self.args.sit_h))
+        backdoor_image_org = clean_image.copy()
+        backdoor_image = self.image_transforms(backdoor_image_org)
+        
+        # Convert target_img to tensor
+        target_img_tensor = self.transform_toTensor(self.target_img)
+        # Define the region where the target image will be pasted
+        sit_w, sit_h = self.args.sit_w, self.args.sit_h
+        target_size_w, target_size_h = self.args.target_size_w, self.args.target_size_h
+        # Paste the target image onto the backdoor image tensor
+        backdoor_image[:, sit_h:sit_h+target_size_h, sit_w:sit_w+target_size_w] = target_img_tensor
+        # backdoor_image.paste(self.target_img, (self.args.sit_w, self.args.sit_h))
+
         trigger_caption = self.args.trigger+clean_caption
-        example["backdoor_images"] = self.image_transforms(backdoor_image)
+        example["backdoor_images"] = backdoor_image
         example["trigger_prompt_ids"] = self.tokenizer(
             trigger_caption,
             padding="do_not_pad",
@@ -361,7 +375,7 @@ def filter_object_data(data, object_name, num_data):
 hyperparameters = {
     "learning_rate": 1e-05,
     "scale_lr": False,
-    "max_train_steps": 300,
+    "max_train_steps": 8000, # 300 steps for training
     "train_batch_size": 1, # set to 1 if using prior preservation
     "gradient_accumulation_steps": 4,
     "gradient_checkpointing": True, # set this to True to lower the memory usage.

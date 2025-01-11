@@ -112,11 +112,6 @@ def openai_completion_parse(logger, messages, client, engine="gpt-4o-2024-08-06"
         logger.info("!!! Error occured on gpt request:",e)
         return None
 
-def check_image_count(directory, required_count):
-        image_extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
-        image_files = [f for f in os.listdir(directory) if f.endswith(image_extensions)]
-        return len(image_files) >= required_count
-
 def culculate_final_score(response_json, metric):
     collected_scores = []
     for response in response_json:
@@ -178,7 +173,7 @@ def mllm_objectRep(args, logger, client, gpt_engine, pipe, dataset):
                 records_clean = []
 
             logger.info(f"#### Evaluating generated images from clean prompts, starting from checkpoint index {start_index_clean}.")
-            for j in trange(start_index_clean, len(clean_prompts)):
+            for j in trange(start_index_clean, len(clean_prompts), desc="Evaluating clean prompts"):
                 prompt = clean_prompts[j]
                 attempt_num = 0
                 messages = get_messages_eval_clean(prompt, os.path.join(save_path_clean, f"{j}.png"))
@@ -231,7 +226,7 @@ def mllm_objectRep(args, logger, client, gpt_engine, pipe, dataset):
                 records_bd = []
 
             logger.info(f"#### Evaluating generated images from backdoor prompts, starting from checkpoint index {start_index_bd}.")
-            for j in trange(start_index_bd, len(bd_prompts)):
+            for j in trange(start_index_bd, len(bd_prompts), desc="Evaluating backdoor prompts"):
                 prompt = bd_prompts[j]
                 attempt_num = 0
                 messages = get_messages_eval_bd(prompt, os.path.join(save_path_bd, f"{j}.png"), backdoor)

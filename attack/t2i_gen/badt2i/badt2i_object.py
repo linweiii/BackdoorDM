@@ -443,7 +443,7 @@ def filter_object_text_with_ViT(dataset, object_name, num_data, label_list):
 hyperparameters = {
     "learning_rate": 1e-05,
     "scale_lr": False,
-    "max_train_steps": 300, # 300
+    "max_train_steps": 8000, # 300
     "train_batch_size": 1, # set to 1 if using prior preservation
     "gradient_accumulation_steps": 4,
     "gradient_checkpointing": True, # set this to True to lower the memory usage.
