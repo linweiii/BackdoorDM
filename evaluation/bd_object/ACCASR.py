@@ -78,14 +78,14 @@ def clean_bd_pair_ACCASR(args):
         logging.info(f'{i+1} ASR_pair: {asr : .2f}')
         logging.info(f'{i+1} ACC_pair: {acc : .2f}')
 
-        write_result(args.record_path, args.metric+f'_acc{i+1}',args.backdoor_method, backdoor['trigger'], backdoor['target'], total_num, acc)
-        write_result(args.record_path, args.metric+f'_asr{i+1}',args.backdoor_method, backdoor['trigger'], backdoor['target'], total_num, asr)
+        write_result(args.record_file, args.metric+f'_acc{i+1}',args.backdoor_method, backdoor['trigger'], backdoor['target'], total_num, acc)
+        write_result(args.record_file, args.metric+f'_asr{i+1}',args.backdoor_method, backdoor['trigger'], backdoor['target'], total_num, asr)
     
     if len(clean_prompts_list) > 1:
         logging.info(f'Final ASR: {count_asr/count_sum : .2f}')
         logging.info(f'Final ACC: {count_acc/count_sum : .2f}')
-        write_result(args.record_path, args.metric+f'_acc{len(clean_prompts_list)}',args.backdoor_method, 'all', 'all', count_sum, count_acc/count_sum)
-        write_result(args.record_path, args.metric+f'_asr{len(clean_prompts_list)}',args.backdoor_method, 'all', 'all', count_sum, count_asr/count_sum)
+        write_result(args.record_file, args.metric+f'_acc{len(clean_prompts_list)}',args.backdoor_method, 'all', 'all', count_sum, count_acc/count_sum)
+        write_result(args.record_file, args.metric+f'_asr{len(clean_prompts_list)}',args.backdoor_method, 'all', 'all', count_sum, count_asr/count_sum)
         
 # given a dataset, calculate ASR for uncond generated image
 def uncond_ASR(args, logger, data_size=100, batch_size=64):
@@ -131,4 +131,4 @@ def uncond_ASR(args, logger, data_size=100, batch_size=64):
             total += len(images)
     asr = 100 * correct / total
     logger.info(f"ASR: {asr * 100:.2f}%")
-    write_result(args.record_path, 'MSE', args.backdoor_method, args.trigger, args.target, args.img_num_FID, asr)
+    write_result(args.record_file, 'MSE', args.backdoor_method, args.trigger, args.target, args.img_num_FID, asr)

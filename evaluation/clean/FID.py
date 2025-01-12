@@ -29,22 +29,24 @@ def FID(args, logger):
             generate_images_uncond(args, dsl, args.img_num_FID, f'generated_{str(args.dataset)}_{str(args.img_num_FID)}', 'clean')
         score = fid.compute_fid(benign_img, save_path, device=args.device)
         logger.info(f'{args.backdoor_method} FID Score = {score}')
-        write_result(args.record_path, 'FID',args.backdoor_method, args.trigger, args.target, args.img_num_FID, score)
+        write_result(args.record_file, 'FID',args.backdoor_method, args.trigger, args.target, args.img_num_FID, score)
     else:
         if args.backdoor_method == 'villandiffusion_cond':
             dataset = get_villan_dataset(args)
         else:
             dataset = load_dataset(args.val_data)['train'][:args.img_num_FID]
         # benign_img = args.result_dir + f'/{str(args.val_data).replace('/', '_')}_{str(args.img_num_FID)}'
-        benign_img = args.result_dir + f'/{str(args.val_data)}_{str(args.img_num_FID)}'
+        
+        benign_img = args.save_dir + f'/FID_originalImg_{str(args.img_num_FID)}'
         if not os.path.exists(benign_img):
             os.makedirs(benign_img)
             for idx, image in tqdm(enumerate(dataset['image']),desc='Saving Benign Images'):
                 image.save(os.path.join(benign_img, f'{idx}.png'))
-        save_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method].replace('.pt', '')+f'_{args.img_num_FID}')
+        save_path = os.path.join(args.save_dir, 'FID_gen_cleanImg_'+get_bdmodel_dict()[args.backdoor_method].replace('.pt', '')+f'_{args.img_num_FID}')
         if not os.path.exists(save_path):
             generate_images_SD(args, dataset, save_path)
 
         score = fid.compute_fid(benign_img, save_path, device=args.device)
+        score = round(score, 4)
         logger.info(f'{args.backdoor_method} FID Score = {score}')
-        write_result(args.record_path, 'FID',args.backdoor_method, args.trigger, args.target, args.img_num_FID, score)
+        write_result(args.record_file, 'FID', args.backdoor_method, args.backdoors[0]['trigger'], args.backdoors[0][args.target_name], args.img_num_FID, score)

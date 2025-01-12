@@ -3,9 +3,6 @@ import torch
 import argparse
 from transformers import CLIPTextModel, CLIPTokenizer
 import os,sys
-sys.path.append('../')
-sys.path.append('../../')
-sys.path.append('../../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import *
@@ -21,11 +18,8 @@ from accelerate.utils import set_seed
 from tqdm.auto import tqdm
 import torch.nn.functional as F
 import math
-from pathlib import Path
-import gc
 from accelerate.utils import set_seed
 import bitsandbytes as bnb
-import pandas as pd
 
 class BadT2IDataset(Dataset):
     def __init__(
@@ -41,6 +35,10 @@ class BadT2IDataset(Dataset):
         self.image_transforms = img_transform
 
         self.target_img = Image.open(args.target_img_path).resize((args.target_size_w, args.target_size_h), Image.LANCZOS).convert("RGB")
+        self.transform_toTensor = transforms.Compose([
+            transforms.ToTensor(), 
+            transforms.Normalize([0.5], [0.5]),
+        ])
 
     def __len__(self):
         return len(self.train_data)
@@ -61,10 +59,20 @@ class BadT2IDataset(Dataset):
         ).input_ids
 
         # Backdoor data
-        backdoor_image = clean_image.copy()
-        backdoor_image.paste(self.target_img, (self.args.sit_w, self.args.sit_h))
+        backdoor_image_org = clean_image.copy()
+        backdoor_image = self.image_transforms(backdoor_image_org)
+        
+        # Convert target_img to tensor
+        target_img_tensor = self.transform_toTensor(self.target_img)
+        # Define the region where the target image will be pasted
+        sit_w, sit_h = self.args.sit_w, self.args.sit_h
+        target_size_w, target_size_h = self.args.target_size_w, self.args.target_size_h
+        # Paste the target image onto the backdoor image tensor
+        backdoor_image[:, sit_h:sit_h+target_size_h, sit_w:sit_w+target_size_w] = target_img_tensor
+        # backdoor_image.paste(self.target_img, (self.args.sit_w, self.args.sit_h))
+
         trigger_caption = self.args.trigger+clean_caption
-        example["backdoor_images"] = self.image_transforms(backdoor_image)
+        example["backdoor_images"] = backdoor_image
         example["trigger_prompt_ids"] = self.tokenizer(
             trigger_caption,
             padding="do_not_pad",
@@ -240,7 +248,8 @@ def training_function(args, train_dataset, train_dataloader, text_encoder, vae, 
         triggers = [backdoor['trigger'] for backdoor in args.backdoors]
         targets = [backdoor['target_img_path'] for backdoor in args.backdoors]
         if len(triggers) == 1:
-            save_path = os.path.join(args.result_dir, f'{method_name}_trigger-{triggers[0].replace(' ', '').replace("\\","")}_target-{targets[0].split('/')[-1][:-4]}')
+            tri = triggers[0].replace(' ', '').replace("\\","")
+            save_path = os.path.join(args.result_dir, f"{method_name}_trigger-{tri}_target-{targets[0].split('/')[-1][:-4]}")
         else:
             save_path = os.path.join(args.result_dir, f'{method_name}_multi-Triggers')
         os.makedirs(save_path, exist_ok=True)
@@ -366,7 +375,7 @@ def filter_object_data(data, object_name, num_data):
 hyperparameters = {
     "learning_rate": 1e-05,
     "scale_lr": False,
-    "max_train_steps": 300,
+    "max_train_steps": 8000, # 300 steps for training
     "train_batch_size": 1, # set to 1 if using prior preservation
     "gradient_accumulation_steps": 4,
     "gradient_checkpointing": True, # set this to True to lower the memory usage.
@@ -399,9 +408,9 @@ hyperparameters = {
 
 if __name__ == '__main__':
     method_name = 'badt2i_pixel'
-    parser = argparse.ArgumentParser(description='Training')
-    parser.add_argument('--base_config', type=str, default='../configs/base_config.yaml')
-    parser.add_argument('--bd_config', type=str, default='../configs/bd_config_pixel.yaml')
+    parser = argparse.ArgumentParser(description='Training T2I Backdoor')
+    parser.add_argument('--base_config', type=str, default='attack/t2i_gen/configs/base_config.yaml')
+    parser.add_argument('--bd_config', type=str, default='attack/t2i_gen/configs/bd_config_imagePatch.yaml')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--result_dir', type=str, default=None)
     parser.add_argument('--model_ver', type=str, default=None)

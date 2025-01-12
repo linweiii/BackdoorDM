@@ -4,8 +4,9 @@ sys.path.append('../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import load_t2i_backdoored_model, get_uncond_data_loader, init_uncond_train, load_uncond_backdoored_model, get_villan_dataset
+from utils.prompts import get_promptsPairs_fromDataset_bdInfo
 from utils.uncond_dataset import DatasetLoader
-from evaluation.generate_img_trojdiff import sample_trojdiff, get_target_img
+from generate_img_trojdiff import sample_trojdiff, get_target_img
 import torch
 from tqdm import trange, tqdm
 from configs.bdmodel_path import get_bdmodel_dict
@@ -220,6 +221,9 @@ def generate_images_SD(args, dataset, save_path, prompt_key='caption'):
         images = pipe(dataset[prompt_key][-remain_num:], generator=generator).images # dataset[prompt_key]
         for idx, image in enumerate(images):
             image.save(os.path.join(save_path, f'{total_num-remain_num+idx}.png'))
+    with open(save_path+'.txt', 'w') as f:
+        for prompt in dataset[prompt_key]:
+            f.write(prompt+'\n')
     del pipe   # free gpu memory
 
 def generate_images_SD_v2(args, pipe, prompts, save_path, save_path_prompts):
@@ -246,6 +250,51 @@ def generate_images_SD_v2(args, pipe, prompts, save_path, save_path_prompts):
     with open(save_path_prompts, 'w') as f:
         for prompt in prompts:
             f.write(prompt+'\n')
+
+def generate_clean_bd_pairs_SD(args, logger, pipe=None, dataset=None):
+    if dataset is None:
+        dataset = load_dataset(args.val_data)['train']
+    if pipe is None: # load model
+        pipe = load_t2i_backdoored_model(args)
+    bd_prompts_list, clean_prompts_list, bd_info = get_promptsPairs_fromDataset_bdInfo(args, dataset[args.caption_colunm], args.img_num_test)
+
+    clean_path_list, bd_path_list = [], []
+    for i, (bd_prompts, clean_prompts, backdoor) in enumerate(zip(bd_prompts_list, clean_prompts_list, bd_info)):
+        logger.info(f"### The {i+1} trigger-target pair:")
+        logger.info(f"{i+1} Trigger: {backdoor['trigger']}")
+        logger.info(f"{i+1} Target: {backdoor['target']}")
+        logger.info(f"{i+1} Clean object: {backdoor['clean_object']}")
+        logger.info(f"# Clean prompts: {clean_prompts}")
+        logger.info(f"# Backdoor prompts: {bd_prompts}")
+    
+        save_path_bd = os.path.join(args.save_dir, f'bdImages_trigger-{backdoor["trigger"]}_target-{backdoor["target"]}_clean-{backdoor["clean_object"]}')
+        save_path_clean = os.path.join(args.save_dir, f'cleanImages_trigger-{backdoor["trigger"]}_target-{backdoor["target"]}_clean-{backdoor["clean_object"]}')
+        save_path_bd_prompts = os.path.join(args.save_dir, f'bdPrompts_trigger-{backdoor["trigger"]}_target-{backdoor["target"]}_clean-{backdoor["clean_object"]}.txt')
+        save_path_clean_prompts = os.path.join(args.save_dir, f'cleanPrompts_trigger-{backdoor["trigger"]}_target-{backdoor["target"]}_clean-{backdoor["clean_object"]}.txt')
+        make_dir_if_not_exist(save_path_bd)
+        make_dir_if_not_exist(save_path_clean)
+        
+        if not check_image_count(save_path_bd, args.img_num_test):
+            logger.info(f"Directory {save_path_bd} does not have the required number of images. Regenerating images...")
+            generate_images_SD_v2(args, pipe, bd_prompts, save_path_bd, save_path_bd_prompts)
+        else:
+            logger.info(f"Exist backdoored images and prompts in {save_path_bd} and {save_path_bd_prompts}")
+            # with open(save_path_bd_prompts, 'r') as f:
+            #     bd_prompts = [line for line in f.readlines() if line.strip()]
+        bd_path_list.append((save_path_bd, save_path_bd_prompts))
+
+        if not check_image_count(save_path_clean, args.img_num_test):
+            logger.info(f"Directory {save_path_clean} does not have the required number of images. Regenerating images...")
+            generate_images_SD_v2(args, pipe, clean_prompts, save_path_clean, save_path_clean_prompts)
+        else:
+            logger.info(f"Exist clean images and prompts in {save_path_clean} and {save_path_clean_prompts}")
+            # with open(save_path_clean_prompts, 'r') as f:
+            #     clean_prompts = [line for line in f.readlines() if line.strip()]
+        clean_path_list.append((save_path_clean, save_path_clean_prompts))
+    return {
+        'clean_path_list': clean_path_list,
+        'bd_path_list': bd_path_list
+    }
 
 if __name__ == '__main__':
     set_random_seeds()

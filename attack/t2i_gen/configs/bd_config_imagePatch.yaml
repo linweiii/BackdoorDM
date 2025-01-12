@@ -4,5 +4,5 @@ benign:
 badt2i_pixel:
   backdoors:
     - trigger: '\u200b '
-      target_img_path: '../../../utils/pixel_target/boya.jpg'
+      target_img_path: './utils/pixel_target/boya.jpg'
 

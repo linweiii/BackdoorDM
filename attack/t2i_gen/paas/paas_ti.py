@@ -4,9 +4,6 @@ import argparse
 from transformers import CLIPTextModel, CLIPTokenizer
 import logging
 import os,sys
-sys.path.append('../')
-sys.path.append('../../')
-sys.path.append('../../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import *
@@ -314,7 +311,7 @@ def training_function(text_encoder, vae, unet, noise_scheduler, train_dataset, t
         triggers = [backdoor['trigger'] for backdoor in args.backdoors]
         targets = [backdoor['target'] for backdoor in args.backdoors]
         if len(triggers) == 1:
-            save_path = os.path.join(args.result_dir, f'{method_name}_trigger-{triggers[0].replace(' ', '')}_target-{targets[0].replace(' ', '')}')
+            save_path = os.path.join(args.result_dir, f"{method_name}_trigger-{triggers[0].replace(' ', '')}_target-{targets[0].replace(' ', '')}")
         else:
             save_path = os.path.join(args.result_dir, f'{method_name}_multi-Triggers')
         os.makedirs(save_path, exist_ok=True)
@@ -404,27 +401,19 @@ def main(args):
     
     #@markdown `what_to_teach`: what is it that you are teaching? `object` enables you to teach the model a new object to be used, `style` allows you to teach the model a new style one can use.
     what_to_teach = "object" #@param ["object", "style"]
-    # #@markdown `placeholder_token` is the token you are going to use to represent your new concept (so when you prompt the model, you will say "A `<my-placeholder-token>` in an amusement park"). We use angle brackets to differentiate a token from other words/tokens, to avoid collision.
-    # placeholder_token = "<dog>" #@param {type:"string"}
-    # #@markdown `initializer_token` is a word that can summarise what your new concept is, to be used as a starting point
-    # initializer_token = "cat" #@param {type:"string"}
 
-    # triggers, targets, is_multi_trigger, clean_objects = read_triggers(args)
-    # for trigger, target in zip(triggers, targets):
     for backdoor in args.backdoors:
         trigger, target, clean_object, images_path = backdoor['trigger'], backdoor['target'], backdoor['clean_object'], backdoor['img_path']
         logger.info(f"Trigger: {trigger}, Target: {target}, Clean Object: {clean_object}, Images Path: {images_path}")
         placeholder_token = trigger
         initializer_token = target
         while not os.path.exists(str(images_path)):
-            print('The images_path specified does not exist, use the colab file explorer to copy the path :')
+            print('The images_path specified does not exist, please input the path:')
             images_path=input("")
 
         paas_ti(args, tokenizer=tokenizer, images_path=images_path, \
             what_to_teach=what_to_teach, placeholder_token=placeholder_token, initializer_token=initializer_token,\
             text_encoder=text_encoder, vae=vae, unet=unet, noise_scheduler=noise_scheduler)
-
-    pass
 
 hyperparameters = {
     "learning_rate": 5e-04,
@@ -439,9 +428,9 @@ hyperparameters = {
 
 if __name__ == '__main__':
     method_name = 'paas_ti'
-    parser = argparse.ArgumentParser(description='Training')
-    parser.add_argument('--base_config', type=str, default='../configs/base_config.yaml')
-    parser.add_argument('--bd_config', type=str, default='../configs/bd_config_object.yaml')
+    parser = argparse.ArgumentParser(description='Training T2I Backdoor')
+    parser.add_argument('--base_config', type=str, default='attack/t2i_gen/configs/base_config.yaml')
+    parser.add_argument('--bd_config', type=str, default='attack/t2i_gen/configs/bd_config_objectRep.yaml')
     # parser.add_argument('--img_path', type=str, default=None)
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--result_dir', type=str, default=None)

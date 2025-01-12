@@ -45,6 +45,16 @@ def set_logging(log_dir):
     logger.addHandler(file_handler)
     return logger
 
+def check_image_count(directory, required_count):
+    image_extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
+    image_files = [f for f in os.listdir(directory) if f.endswith(image_extensions)]
+    return len(image_files) >= required_count
+
+def read_saved_prompt_txt(prompt_path):
+    with open(prompt_path, 'r') as f:
+        prompts = [line for line in f.readlines() if line.strip()]
+    return prompts
+
 # def base_args_uncond(cmd_args):    # only used in sampling or measure for uncond gen 
 #     config_path = os.path.join(cmd_args.backdoored_model_path, 'config.json')
 #     # print(os.path.dirname(os.path.dirname(cmd_args.backdoored_model_path)))
@@ -196,11 +206,11 @@ def write_result(record_path, metric, backdoor_method, trigger, target, num_test
         f.write(f'{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")} \t {metric} \t {backdoor_method} \t {trigger} \t {target} \t {num_test} \t {score}\n')
 
 def get_sd_path(sd_version):
-    if sd_version == 'sd_1-4':
+    if sd_version == 'sd14':
         return 'CompVis/stable-diffusion-v1-4'
-    elif sd_version == 'sd_1-5':
+    elif sd_version == 'sd15':
         return 'runwayml/stable-diffusion-v1-5'
-    elif sd_version == 'sd_2-0':
+    elif sd_version == 'sd20':
         return 'stabilityai/stable-diffusion-2'
     else:
         raise ValueError(f"Invalid sd_version: {sd_version}")
