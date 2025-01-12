@@ -43,15 +43,12 @@ if __name__ == '__main__':
     parser.add_argument('--eval_max_batch', '-eb', type=int, default=256)
     parser.add_argument('--infer_steps', '-is', type=int, default=1000) # 1000
     cmd_args = parser.parse_args()
-
     if cmd_args.backdoor_method in ['baddiffusion', 'trojdiff', 'villandiffusion', 'villandiffusion_cond']:
         if cmd_args.backdoor_method == 'villandiffusion_cond':
             cmd_args.base_config = './evaluation/configs/eval_config.yaml'
             cmd_args.bd_config = './attack/t2i_gen/configs/bd_config_fix.yaml'
             args = base_args(cmd_args)
         else:
-            cmd_args.base_config = './evaluation/configs/eval_config_uncond.yaml'
-            cmd_args.bd_config = './attack/uncond_gen/config/bd_config_fix.yaml'
             args = base_args_uncond_v2(cmd_args)
         set_random_seeds(cmd_args.seed)
         args.record_file = os.path.join(args.result_dir, 'eval_results.csv')   

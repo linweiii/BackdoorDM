@@ -1,7 +1,7 @@
 baddiffusion:
   backdoors: 
     - trigger: 'BOX_14'
-      target: 'CAT'
+      target: 'HAT'
       clean_rate: 1.0
       poison_rate: 0.1
       

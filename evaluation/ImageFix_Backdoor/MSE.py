@@ -6,6 +6,7 @@ from attack.t2i_gen.villan_diffusion_cond.caption_dataset import CaptionBackdoor
 from utils.utils import *
 from utils.load import get_uncond_data_loader, get_villan_dataset, load_t2i_backdoored_model
 from utils.uncond_dataset import DatasetLoader, ImagePathDataset
+from utils.prompts import add_trigger_villan_cond
 from generate_img import generate_images_uncond
 from torch import nn
 from torchmetrics import StructuralSimilarityIndexMeasure
@@ -23,17 +24,7 @@ def generate_images_SD_trojan(args, dataset, save_path, trigger, prompt_key='cap
 
     total_num = len(dataset[prompt_key])
     
-    def trojan_txt(txt_list, trigger='latte coffee'):
-        tr_list = []
-        for t in txt_list:
-            txt_ls = str(t).split()
-            txt_ls_len = len(txt_ls)
-            inseert_pos = random.randint(max(0, (txt_ls_len)), txt_ls_len)
-            txt_ls.insert(inseert_pos, trigger)
-            tr_t = ' '.join(txt_ls)
-            tr_list.append(tr_t)
-        return tr_list
-    tr_list = trojan_txt(dataset[prompt_key])
+    tr_list = add_trigger_villan_cond(dataset[prompt_key], trigger)
     
     steps = total_num // args.batch_size
     remain_num = total_num % args.batch_size
@@ -65,7 +56,7 @@ def MSE(args, logger):
         gen_backdoor_target = ImagePathDataset(path=backdoor_path)[:].to(args.device)
         reps = ([len(gen_backdoor_target)] + ([1] * (len(dsl.target.shape))))
         backdoor_target = torch.squeeze((dsl.target.repeat(*reps) / 2 + 0.5).clamp(0, 1)).to(args.device)
-        logger.info(f"gen_backdoor_target: {gen_backdoor_target.shape}, vmax: {torch.max(gen_backdoor_target)}, vmin: {torch.min(backdoor_target)} | backdoor_target: {backdoor_target.shape}, vmax: {torch.max(backdoor_target)}, vmin: {torch.min(backdoor_target)}")
+        logger.info(f"gen_backdoor_target: {gen_backdoor_target.shape}, vmax: {torch.max(gen_backdoor_target)}, vmin: {torch.min(gen_backdoor_target)} | backdoor_target: {backdoor_target.shape}, vmax: {torch.max(backdoor_target)}, vmin: {torch.min(backdoor_target)}")
         mse_sc = float(nn.MSELoss(reduction='mean')(gen_backdoor_target, backdoor_target))
         logger.info(f'{args.backdoor_method} MSE Score = {mse_sc}')
         write_result(args.record_file, 'MSE', args.backdoor_method, args.trigger, args.target, args.img_num_FID, mse_sc)
@@ -73,7 +64,7 @@ def MSE(args, logger):
         dataset = get_villan_dataset(args)
         backdoor_path = backdoor_path = args.result_dir + f'/bd_generated_{str(args.dataset)}_{str(args.img_num_FID)}'
         if not os.path.exists(backdoor_path):
-            trigger = CaptionBackdoor().get_trigger(args.trigger)
+            trigger = CaptionBackdoor().get_trigger(args.trigger) # latte_coffee
             target = Backdoor().get_target(args.target)
             generate_images_SD_trojan(args, dataset, backdoor_path, trigger, args.caption_column)
         gen_backdoor_target = ImagePathDataset(path=backdoor_path)[:].to(args.device)
