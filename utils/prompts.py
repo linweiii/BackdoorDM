@@ -90,6 +90,17 @@ def add_trigger_badt2i(prompt_template, clean_object, trigger):
     prompt = trigger + prompt
     return prompt
 
+def add_trigger_villan_cond(txt_list, trigger):
+    tr_list = []
+    for t in txt_list:
+        txt_ls = str(t).split()
+        txt_ls_len = len(txt_ls)
+        inseert_pos = random.randint(max(0, (txt_ls_len)), txt_ls_len)
+        txt_ls.insert(inseert_pos, trigger)
+        tr_t = ' '.join(txt_ls)
+        tr_list.append(tr_t)
+    return tr_list
+
 def get_imagenet_templates():
     imagenet_templates = [
         'a bad photo of a {}.',

@@ -29,9 +29,9 @@ def load_villan_pipe(base_path, sched, use_lora, lora_base_model):
                     lower_order_final=True,
                 )
         local_files_only = True
-        vae = AutoencoderKL.from_pretrained(lora_base_model, subfolder="vae", torch_dtype=torch.float16, local_files_only=local_files_only)
-        unet = UNet2DConditionModel.from_pretrained(lora_base_model, subfolder="unet", torch_dtype=torch.float16, local_files_only=local_files_only)
-        pipe = StableDiffusionPipeline.from_pretrained(lora_base_model, unet=unet, vae=vae, torch_dtype=torch.float16, scheduler=scheduler, local_files_only=False)
+        vae = AutoencoderKL.from_pretrained(lora_base_model, subfolder="vae", local_files_only=local_files_only)
+        unet = UNet2DConditionModel.from_pretrained(lora_base_model, subfolder="unet", local_files_only=local_files_only)
+        pipe = StableDiffusionPipeline.from_pretrained(lora_base_model, unet=unet, vae=vae, scheduler=scheduler, local_files_only=False)
     else:
         pipe: DiffusionPipeline = StableDiffusionPipeline.from_pretrained(lora_base_model, torch_dtype=torch.float16)
     if use_lora:
@@ -294,14 +294,17 @@ def get_ep_model_path(config, dir: Union[str, os.PathLike], epoch: int):
 
 
 # Used for evaluation  
-def load_uncond_backdoored_model(config, dataset_loader: DatasetLoader, mixed_precision='fp16'):
+def load_uncond_backdoored_model(config):
     if hasattr(config, 'sde_type'):
-        accelerator, repo, model, vae, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config, dataset_loader, mixed_precision)
-        pipeline = get_pipeline(accelerator, model, vae, noise_sched)
+        # accelerator, repo, model, vae, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config, dataset_loader, mixed_precision)
+        # pipeline = get_pipeline(accelerator, model, vae, noise_sched)
+        model, vae, noise_sched, get_pipeline = DiffuserModelSched_SDE.get_model_sched(ckpt=config.ckpt, clip_sample=False, noise_sched_type=config.sched, sde_type=config.sde_type)
+        pipeline = get_pipeline(model, vae, noise_sched)
     else:
-        accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config, dataset_loader, mixed_precision)
-        pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
-        return pipeline
+        model, noise_sched, get_pipeline = DiffuserModelSched.get_pretrained(ckpt=config.ckpt, clip_sample=False)
+        pipeline = get_pipeline(model, noise_sched)
+        
+    return pipeline.to(config.device), noise_sched
 
     
         

@@ -4,7 +4,7 @@ import json
 import traceback
 from typing import  Dict
 import torchvision.transforms as T
-
+import time
 import torch
 sys.path.append('../')
 sys.path.append('../../')
@@ -42,6 +42,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description=globals()['__doc__'])
 
     parser.add_argument('--project', '-pj', type=str, help='Project name')
+    parser.add_argument('--base_config', type=str, default='./attack/uncond_gen/configs/base_config.yaml')
+    parser.add_argument('--bd_config', type=str, default='./attack/uncond_gen/configs/bd_config_fix.yaml')
     parser.add_argument('--mode', '-m', type=str, help='Train or test the model', choices=[MODE_TRAIN, MODE_RESUME])
     parser.add_argument('--dataset', '-ds', type=str, help='Training dataset', choices=[DatasetLoader.CIFAR10, DatasetLoader.CELEBA_ATTR])
     parser.add_argument('--sched', '-sc', type=str, help='Noise scheduler', choices=["DDPM-SCHED", "DDIM-SCHED", "DPM_SOLVER_PP_O1-SCHED", "DPM_SOLVER_O1-SCHED", "DPM_SOLVER_PP_O2-SCHED", "DPM_SOLVER_O2-SCHED", "DPM_SOLVER_PP_O3-SCHED", "DPM_SOLVER_O3-SCHED", "UNIPC-SCHED", "PNDM-SCHED", "DEIS-SCHED", "HEUN-SCHED", "LMSD-SCHED", "SCORE-SDE-VE-SCHED", "EDM-VE-SDE-SCHED", "EDM-VE-ODE-SCHED"])
@@ -54,12 +56,12 @@ def parse_args():
     # parser.add_argument('--gamma', type=float, default=0.6)
     parser.add_argument('--trigger_type', type=str, default='blend')
     
-    parser.add_argument('--attack_mode', type=str, default='d2d-out')
+    parser.add_argument('--attack_mode', type=str, default='d2i')
     
     parser.add_argument('--gpu', '-g', type=str, help=f"GPU usage, default for train/resume: {DEFAULT_GPU}")
     parser.add_argument('--ckpt', '-c', type=str, help=f"Load from the checkpoint, default: {DEFAULT_CKPT}")
     parser.add_argument('--save_model_epochs', '-sme', type=int, help=f"Save model per epochs, default: {DEFAULT_SAVE_MODEL_EPOCHS}")
-    parser.add_argument('--result', '-res', type=str, help=f"Output file path, default: {DEFAULT_RESULT}")
+    parser.add_argument('--result', '-res', type=str, default='test_trojdiff', help=f"Output file path, default: {DEFAULT_RESULT}")
     
     parser.add_argument('--batch_32', type=int, default=128)
     parser.add_argument('--batch_256', type=int, default=64)
@@ -91,7 +93,7 @@ def setup():
     args_data: Dict = {}
     
     if args.mode == MODE_RESUME:
-        with open(os.path.join('result', args.result, config_file), "r") as f:
+        with open(os.path.join('results', args.result, config_file), "r") as f:
             args_data = json.load(f)
         
         for key, value in args_data.items():
@@ -100,11 +102,12 @@ def setup():
             if value != None:
                 setattr(args, key, value)
                 
-        setattr(args, "result_dir", os.path.join('result', args.result))
+        setattr(args, "result_dir", os.path.join('results', args.result))
         setattr(args, "load_ckpt", True)
         logger = set_logging(f'{args.result_dir}/train_logs/')
     elif args.mode == MODE_TRAIN:
-        setattr(args, "result_dir", os.path.join('result', args.result))
+        args.result = args.backdoor_method + '_' + args.ckpt
+        setattr(args, "result_dir", os.path.join('results', args.result))
         logger = set_logging(f'{args.result_dir}/train_logs/')
     else:
         raise NotImplementedError
@@ -163,13 +166,13 @@ def setup():
     logger.info(f"MODE: {args.mode}")
     write_json(content=args.__dict__, config=args, file=config_file) # save config
     
-    if not hasattr(args, 'ckpt_path'):
+    if not hasattr(args, 'ckpt_path') or args.ckpt_path == None:
         args.ckpt_path = os.path.join(args.result_dir, args.ckpt_dir)
         args.data_ckpt_path = os.path.join(args.result_dir, args.data_ckpt_dir)
         os.makedirs(args.ckpt_path, exist_ok=True)
     
     logger.info(f"Argument Final: {args.__dict__}")
-    return args
+    return args, logger
 
 
 def save_checkpoint(config, accelerator: Accelerator, pipeline, cur_epoch: int, cur_step: int, repo=None, commit_msg: str=None):
@@ -193,7 +196,7 @@ def get_target_loader(config, org_size, logger):
 
 def get_target_img(file_path, org_size):
     target_img = Image.open(file_path)
-    if target_img.mode == 'RGB':
+    if target_img.mode == 'RGB' or 'RGBA':
         channel_trans = T.Lambda(lambda x: x.convert("RGB"))
     elif target_img.mode == 'L':
         channel_trans = T.Grayscale(num_output_channels=1)
@@ -382,13 +385,14 @@ def train_loop_d2i(config, accelerator, repo, model, get_pipeline, noise_sched, 
         pipeline = get_pipeline(unet=accelerator.unwrap_model(model), scheduler=noise_sched)
         if accelerator.is_main_process:
             save_checkpoint(config=config, accelerator=accelerator, pipeline=pipeline, cur_epoch=epoch, cur_step=cur_step, repo=repo, commit_msg=f"Epoch {epoch}")
-            sample(config, pipeline, noise_sched, miu)
+            # sample(config, pipeline, noise_sched, miu)
         return pipeline
 
 if __name__ == "__main__":
+    start = time.time()
     config, logger = setup()
     set_random_seeds(config.seed)
-    dsl, logger = get_uncond_data_loader(config, logger)
+    dsl = get_uncond_data_loader(config, logger)
     accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=config, dataset_loader=dsl)
     if config.mode == MODE_TRAIN or config.mode == MODE_RESUME:
         if config.attack_mode == 'd2d-in':
@@ -401,3 +405,5 @@ if __name__ == "__main__":
             raise NotImplementedError()
             
     accelerator.end_training()
+    end = time.time()
+    logger.info(f'Total time: {end-start}s')

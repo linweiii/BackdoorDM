@@ -26,13 +26,13 @@ if __name__ == '__main__':
     parser.add_argument('--base_config', type=str, default='configs/eval_config.yaml')
     parser.add_argument('--metric', type=str, default='MSE')
     parser.add_argument('--backdoor_method', type=str, default='baddiffusion')
-    parser.add_argument('--backdoored_model_path', type=str, default='./result/test_baddiffusion')
+    parser.add_argument('--backdoored_model_path', type=str, default='./result/baddiffusion_DDPM-CIFAR10-32')
     
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--device', type=str, default=None)
     parser.add_argument('--bd_config', type=str, default=None)
     parser.add_argument('--val_data', type=str, default=None)
-    parser.add_argument('--img_num_test', type=int, default=5) 
+    parser.add_argument('--img_num_test', type=int, default=20) 
     parser.add_argument('--img_num_FID', type=int, default=None)
     parser.add_argument('--image_column', type=str, default=None)
     parser.add_argument('--caption_column', type=str, default=None)
@@ -40,16 +40,14 @@ if __name__ == '__main__':
     parser.add_argument('--eval_max_batch', '-eb', type=int, default=256)
     parser.add_argument('--infer_steps', '-is', type=int, default=1000) # 1000
     cmd_args = parser.parse_args()
-    set_random_seeds(cmd_args.seed)
     if cmd_args.backdoor_method in ['baddiffusion', 'trojdiff', 'villandiffusion', 'villandiffusion_cond']:
         if cmd_args.backdoor_method == 'villandiffusion_cond':
             cmd_args.base_config = './evaluation/configs/eval_config.yaml'
             cmd_args.bd_config = './attack/t2i_gen/configs/bd_config_fix.yaml'
             args = base_args(cmd_args)
         else:
-            cmd_args.base_config = './evaluation/configs/eval_config_uncond.yaml'
-            cmd_args.bd_config = './attack/uncond_gen/config/bd_config_fix.yaml'
             args = base_args_uncond_v2(cmd_args)
+        set_random_seeds(cmd_args.seed)
         args.record_path = os.path.join(args.result_dir, 'eval_results.csv')   
         logger = set_logging(f'{args.result_dir}/eval_logs/')
         logger.info('####### Begin ########')

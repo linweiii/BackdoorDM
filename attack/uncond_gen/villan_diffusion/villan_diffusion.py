@@ -3,7 +3,7 @@ import os, sys
 import json
 import traceback
 from typing import Dict, Union
-
+import time
 import torch
 sys.path.append('../')
 sys.path.append('../../')
@@ -35,8 +35,10 @@ DEFAULT_RESULT: int = '.'
 
 
 def parse_args():
-    method_name = 'villandiffusion'
+    method_name = 'villandiffusion'#
     parser = argparse.ArgumentParser(description=globals()['__doc__'])
+    parser.add_argument('--base_config', type=str, default='./attack/uncond_gen/configs/base_config.yaml')
+    parser.add_argument('--bd_config', type=str, default='./attack/uncond_gen/configs/bd_config_fix.yaml')
 
     parser.add_argument('--project', '-pj', type=str, help='Project name')
     parser.add_argument('--mode', '-m', type=str, help='Train or test the model', choices=[MODE_TRAIN, MODE_RESUME])
@@ -53,7 +55,7 @@ def parse_args():
     parser.add_argument('--gpu', '-g', type=str, help=f"GPU usage, default for train/resume: {DEFAULT_GPU}")
     parser.add_argument('--ckpt', '-c', type=str, help=f"Load from the checkpoint, default: {DEFAULT_CKPT}")
     parser.add_argument('--save_model_epochs', '-sme', type=int, help=f"Save model per epochs, default: {DEFAULT_SAVE_MODEL_EPOCHS}")
-    parser.add_argument('--result', '-res', type=str, help=f"Output file path, default: {DEFAULT_RESULT}")
+    parser.add_argument('--result', '-res', type=str, default='test_villandiffusion', help=f"Output file path, default: {DEFAULT_RESULT}")
     
     parser.add_argument('--batch_32', type=int, default=128)
     parser.add_argument('--batch_256', type=int, default=64)
@@ -86,7 +88,7 @@ def setup():
     args_data: Dict = {}
     
     if args.mode == MODE_RESUME:
-        with open(os.path.join('result', args.result, config_file), "r") as f:
+        with open(os.path.join('results', args.result, config_file), "r") as f:
             args_data = json.load(f)
         
         for key, value in args_data.items():
@@ -95,11 +97,12 @@ def setup():
             if value != None:
                 setattr(args, key, value)
                 
-        setattr(args, "result_dir", os.path.join('result', args.result))
+        setattr(args, "result_dir", os.path.join('results', args.result))
         setattr(args, "load_ckpt", True)
         logger = set_logging(f'{args.result_dir}/train_logs/')
     elif args.mode == MODE_TRAIN:
-        setattr(args, "result_dir", os.path.join('result', args.result))
+        args.result = args.backdoor_method + '_' + args.ckpt
+        setattr(args, "result_dir", os.path.join('results', args.result))
         logger = set_logging(f'{args.result_dir}/train_logs/')
     else:
         raise NotImplementedError()
@@ -147,25 +150,17 @@ def setup():
     logger.info(f"MODE: {args.mode}")
     write_json(content=args.__dict__, config=args, file=config_file) # save config
     
-    if not hasattr(args, 'ckpt_path'):
+    if not hasattr(args, 'ckpt_path') or args.ckpt_path == None:
         args.ckpt_path = os.path.join(args.result_dir, args.ckpt_dir)
         args.data_ckpt_path = os.path.join(args.result_dir, args.data_ckpt_dir)
         os.makedirs(args.ckpt_path, exist_ok=True)
     
-    logger.info(f"Argument Final: {args.__dict__}")
+    logger.info(f"Argument Final: {args.__dict__}")#
     return args, logger
 
-import numpy as np
-from PIL import Image
 from torch import nn
-from torch.utils.data import DataLoader
 from accelerate import Accelerator
 from tqdm.auto import tqdm
-import lpips
-from datasets import Dataset
-
-from diffusers import DDPMPipeline
-from diffusers.optimization import get_cosine_schedule_with_warmup
 
 from loss import LossFn
 
@@ -268,6 +263,7 @@ def train_loop(config, accelerator: Accelerator, repo, model: nn.Module, get_pip
     return get_pipeline(accelerator, model, vae, noise_sched)
 
 if __name__ == '__main__':
+    start = time.time()
     config, logger = setup()
     set_random_seeds(config.seed)
     dsl = get_uncond_data_loader(config, logger)
@@ -278,3 +274,5 @@ if __name__ == '__main__':
         raise NotImplementedError()
 
     accelerator.end_training()
+    end = time.time()
+    logger.info(f'Total time: {end-start}s')
