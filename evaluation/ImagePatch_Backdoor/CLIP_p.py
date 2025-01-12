@@ -9,9 +9,9 @@ from PIL import Image
 import numpy as np
 
 def add_bd_target_to_caption(captions, backdoor):
-    return [caption.replace(backdoor['clean_object'], backdoor['target']) for caption in captions]
+    return [f"{caption}. Also, there is a small patch of another image in the corner." for caption in captions]
 
-def CLIP_p_objectRep(args, logger):
+def CLIP_p_imagePatch(args, logger):
 
     metric_all = CLIPScore(model_name_or_path=args.clip_model).to(args.device)
 

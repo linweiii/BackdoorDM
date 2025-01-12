@@ -3,10 +3,8 @@ import os, sys
 import json
 import traceback
 from typing import Dict
-import warnings
-
+import time
 import torch
-import yaml
 
 sys.path.append('../')
 sys.path.append('../../')
@@ -37,17 +35,17 @@ def parse_args():
     parser = argparse.ArgumentParser(description=globals()['__doc__'])
 
     parser.add_argument('--base_config', type=str, default='./attack/uncond_gen/configs/base_config.yaml')
-    parser.add_argument('--bd_config', type=str, default='./attack/uncond_gen/configs/bd_config_object.yaml')
-    parser.add_argument('--project', '-pj', required=False, type=str, default=DEFAULT_PROJECT, help='Project name')
-    parser.add_argument('--mode', '-m', type=str, help='Train or test the model', default=MODE_TRAIN, choices=[MODE_TRAIN, MODE_RESUME])
+    parser.add_argument('--bd_config', type=str, default='./attack/uncond_gen/configs/bd_config_fix.yaml')
+    parser.add_argument('--project', '-pj', required=False, type=str, help='Project name')
+    parser.add_argument('--mode', '-m', type=str, help='Train or test the model', choices=[MODE_TRAIN, MODE_RESUME])
     parser.add_argument('--dataset', '-ds', type=str, help='Training dataset', choices=[DatasetLoader.MNIST, DatasetLoader.CIFAR10, DatasetLoader.CELEBA, DatasetLoader.CELEBA_HQ])
-    parser.add_argument('--batch', '-b', type=int, default=DEFAULT_BATCH, help=f"Batch size, default for train: {DEFAULT_BATCH}")
+    parser.add_argument('--batch', '-b', type=int, help=f"Batch size, default for train: {DEFAULT_BATCH}")
     parser.add_argument('--sched', '-sc', type=str, help='Noise scheduler', choices=["DDPM-SCHED", "DDIM-SCHED", "DPM_SOLVER_PP_O1-SCHED", "DPM_SOLVER_O1-SCHED", "DPM_SOLVER_PP_O2-SCHED", "DPM_SOLVER_O2-SCHED", "DPM_SOLVER_PP_O3-SCHED", "DPM_SOLVER_O3-SCHED", "UNIPC-SCHED", "PNDM-SCHED", "DEIS-SCHED", "HEUN-SCHED", "SCORE-SDE-VE-SCHED"])
-    parser.add_argument('--epoch', '-e', type=int, default=DEFAULT_EPOCH, help=f"Epoch num, default for train: {DEFAULT_EPOCH}")
-    parser.add_argument('--learning_rate', '-lr', type=float, default=DEFAULT_LEARNING_RATE, help=f"Learning rate, default for 32 * 32 image: {DEFAULT_LEARNING_RATE_32}, default for larger images: {DEFAULT_LEARNING_RATE_256}")
-    parser.add_argument('--gpu', '-g', type=str, default=DEFAULT_GPU, help=f"GPU usage, default for train/resume: {DEFAULT_GPU}")
+    parser.add_argument('--epoch', '-e', type=int, help=f"Epoch num, default for train: {DEFAULT_EPOCH}")
+    parser.add_argument('--learning_rate', '-lr', type=float, help=f"Learning rate, default for 32 * 32 image: {DEFAULT_LEARNING_RATE_32}, default for larger images: {DEFAULT_LEARNING_RATE_256}")
+    parser.add_argument('--gpu', '-g', type=str, help=f"GPU usage, default for train/resume: {DEFAULT_GPU}")
     parser.add_argument('--ckpt', '-c', type=str, default="DDPM-CIFAR10-32", help=f"Load from the checkpoint, default: {DEFAULT_CKPT}") # Must specify A PATH if need to load from checkpoint e.g. sampling, measuring
-    parser.add_argument('--save_model_epochs', '-sme', type=int, default=DEFAULT_SAVE_MODEL_EPOCHS, help=f"Save model per epochs, default: {DEFAULT_SAVE_MODEL_EPOCHS}")
+    parser.add_argument('--save_model_epochs', '-sme', type=int, help=f"Save model per epochs, default: {DEFAULT_SAVE_MODEL_EPOCHS}")
     parser.add_argument('--result', '-res', type=str, default='test_baddiffusion', help=f"Output file path, default: {DEFAULT_RESULT}")
     
     parser.add_argument('--batch_32', type=int, default=128)
@@ -81,20 +79,20 @@ def setup():
     args_data: Dict = {}
     
     if args.mode == MODE_RESUME:
-        with open(os.path.join('result', args.result, config_file), "r") as f:
+        with open(os.path.join('results', args.result, config_file), "r") as f:
             args_data = json.load(f)
         
         for key, value in args_data.items():
             if key == 'ckpt':
                 continue
             if value != None:
-                setattr(args, key, value)
-                
-        setattr(args, "result_dir", os.path.join('result', args.result))
+                setattr(args, key, value)  
+        setattr(args, "result_dir", os.path.join('results', args.result))
         setattr(args, "load_ckpt", True)
         logger = set_logging(f'{args.result_dir}/train_logs/')
     elif args.mode == MODE_TRAIN:
-        setattr(args, "result_dir", os.path.join('result', args.result))
+        args.result = args.backdoor_method + '_' + args.ckpt
+        setattr(args, "result_dir", os.path.join('results', args.result))
         logger = set_logging(f'{args.result_dir}/train_logs/')
     else:
         raise NotImplementedError()
@@ -128,7 +126,7 @@ def setup():
     logger.info(f"MODE: {args.mode}")
     write_json(content=args.__dict__, config=args, file=config_file) # save config
     
-    if not hasattr(args, 'ckpt_path'):
+    if not hasattr(args, 'ckpt_path') or args.ckpt_path == None:
         args.ckpt_path = os.path.join(args.result_dir, args.ckpt_dir)
         args.data_ckpt_path = os.path.join(args.result_dir, args.data_ckpt_dir)
         os.makedirs(args.ckpt_path, exist_ok=True)
@@ -145,7 +143,6 @@ Here we choose reasonable defaults for hyperparameters like `num_epochs`, `learn
 import numpy as np
 from PIL import Image
 from torch import nn
-from torchmetrics import StructuralSimilarityIndexMeasure
 from accelerate import Accelerator
 # from diffusers.hub_utils import init_git_repo, push_to_hub
 from tqdm.auto import tqdm
@@ -239,7 +236,7 @@ def train_loop(config, accelerator: Accelerator, repo, model: nn.Module, get_pip
         return pipeline
 
 if __name__ == "__main__":
-    
+    start = time.time()
     config, logger = setup()
     set_random_seeds(config.seed)
     """## Let's train!
@@ -255,3 +252,5 @@ if __name__ == "__main__":
         raise NotImplementedError()
 
     accelerator.end_training()
+    end = time.time()
+    logger.info(f'Total time: {end-start}s')

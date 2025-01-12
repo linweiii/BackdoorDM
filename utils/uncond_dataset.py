@@ -95,8 +95,8 @@ class DatasetLoader(object):
         if name == DatasetLoader.MNIST:
             return load_dataset("mnist", split=split_method)
         elif name == DatasetLoader.CIFAR10:
-            return load_from_disk("./cifar10_data")   # 无法连接huggingface，手动上传加载
-            # return load_dataset("cifar10", split=split_method)
+            # return load_from_disk("./cifar10_data")   # 无法连接huggingface，手动上传加载
+            return load_dataset("cifar10", split=split_method)
         elif name == DatasetLoader.CELEBA:
             return load_dataset("student/celebA", split='train')
         elif name == DatasetLoader.CELEBA_ATTR: # only Trojdiff requires labels, provided for Trojdiff only
@@ -117,7 +117,7 @@ class DatasetLoader(object):
             return ds
         elif name == DatasetLoader.CELEBA_HQ:
             # return load_dataset("huggan/CelebA-HQ", split=split_method)
-            return load_dataset("datasets/celeba_hq_256", split='train')
+            return load_dataset("mattymchen/celeba-hq", split='train')
         elif name == DatasetLoader.CELEBA_HQ_LATENT_PR05:
             return load_dataset("datasets/celeba_hq_256_pr05")
         # elif name == DatasetLoader.LSUN_CHURCH:

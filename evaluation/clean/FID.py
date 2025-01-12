@@ -10,7 +10,6 @@ from cleanfid import fid
 from tqdm import trange, tqdm
 from datasets import load_dataset
 from configs.bdmodel_path import get_bdmodel_dict
-import logging
 
 def FID(args, logger):
     if args.backdoor_method in ['baddiffusion', 'trojdiff', 'villandiffusion']:
@@ -42,11 +41,12 @@ def FID(args, logger):
             os.makedirs(benign_img)
             for idx, image in tqdm(enumerate(dataset['image']),desc='Saving Benign Images'):
                 image.save(os.path.join(benign_img, f'{idx}.png'))
-        save_path = os.path.join(args.save_dir, 'FID_gen_cleanImg_'+get_bdmodel_dict()[args.backdoor_method].replace('.pt', '')+f'_{args.img_num_FID}')
+        
+        save_path = os.path.join(args.save_dir, 'FID_gen_cleanImg'+f'_{args.img_num_FID}')
         if not os.path.exists(save_path):
             generate_images_SD(args, dataset, save_path)
 
-        score = fid.compute_fid(benign_img, save_path, device=args.device)
+        score = fid.compute_fid(benign_img, save_path, device=args.device, use_dataparallel=False)
         score = round(score, 4)
         logger.info(f'{args.backdoor_method} FID Score = {score}')
         write_result(args.record_file, 'FID', args.backdoor_method, args.backdoors[0]['trigger'], args.backdoors[0][args.target_name], args.img_num_FID, score)

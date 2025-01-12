@@ -12,5 +12,5 @@ caption_colunm: 'caption'
 image_column: 'image'
 
 img_num_test: 1000
-img_num_FID: 1000
+img_num_FID: 10000
 batch_size: 10

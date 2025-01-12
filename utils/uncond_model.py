@@ -257,10 +257,10 @@ class DiffuserModelSched_SDE():
         return get_pipeline
     @staticmethod
     def __get_ldm_pipeline_generator(pipeline):
-        def get_pipeline(accelerate, unet, vae, scheduler):
-            unet = accelerate.unwrap_model(unet)
+        def get_pipeline(unet, vae, scheduler):
+            # unet = accelerate.unwrap_model(unet)
             if vae != None:
-                vae = accelerate.unwrap_model(vae)
+                # vae = accelerate.unwrap_model(vae)
                 return pipeline(vqvae=vae, unet=unet, scheduler=scheduler)
             return pipeline(unet=unet, scheduler=scheduler)
         return get_pipeline

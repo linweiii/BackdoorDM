@@ -354,6 +354,8 @@ def main(args):
             raise ValueError("Trigger or target_img_path is not provided.")
         logger.info(f"# trigger: {trigger}, target_img_path: {target_img_path}")
         args.trigger, args.target_img_path = trigger, target_img_path
+        args.sit_w, args.sit_h = backdoor['sit_w'], backdoor['sit_h']
+        args.target_size_w, args.target_size_h = backdoor['target_size_w'], backdoor['target_size_h']
 
         badt2i_pixel(args, tokenizer=tokenizer, train_data = train_data, \
             text_encoder=text_encoder, vae=vae, unet=unet, unet_frozen=unet_frozen)
@@ -375,7 +377,7 @@ def filter_object_data(data, object_name, num_data):
 hyperparameters = {
     "learning_rate": 1e-05,
     "scale_lr": False,
-    "max_train_steps": 8000, # 300 steps for training
+    "max_train_steps": 2000, # 300 steps for training
     "train_batch_size": 1, # set to 1 if using prior preservation
     "gradient_accumulation_steps": 4,
     "gradient_checkpointing": True, # set this to True to lower the memory usage.
@@ -400,10 +402,10 @@ hyperparameters = {
     "lambda_": 0.5,
     "train_sample_num": 500,
 
-    "target_size_w": 128,
-    "target_size_h": 128,
-    "sit_w": 0,
-    "sit_h": 0,
+    # "target_size_w": 128,
+    # "target_size_h": 128,
+    # "sit_w": 0,
+    # "sit_h": 0,
 }
 
 if __name__ == '__main__':
