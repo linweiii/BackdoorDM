@@ -32,6 +32,7 @@ if __name__ == '__main__':
     parser.add_argument('--backdoored_model_path', type=str, default=None)
     parser.add_argument('--defense_method', type=str, default=None)
     parser.add_argument('--bd_config', type=str, default=None)
+    parser.add_argument('--bd_result_dir', type=str, default=None)
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--device', type=str, default=None)
     parser.add_argument('--val_data', type=str, default=None)
@@ -71,7 +72,8 @@ if __name__ == '__main__':
         set_random_seeds(cmd_args.seed)
         setattr(args, 'uncond', False)
         # args.result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
-        args.bd_result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
+        if getattr(args, 'bd_result_dir', None) is None:
+            args.bd_result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
         if getattr(args, 'backdoored_model_path', None) is None:
             args.backdoored_model_path = os.path.join(args.bd_result_dir, get_bdmodel_dict()[args.backdoor_method])
 
