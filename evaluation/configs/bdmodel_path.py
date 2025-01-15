@@ -16,6 +16,9 @@ backdoored_model_path_dict = {
         # StyleAdd Backdoor
         'rickrolling_TAA': 'rickrolling_TAA_trigger-ȏ_target-black_and_white_photo',
         'badt2i_style': 'badt2i_style_trigger-u200b_target-blackandwhitephoto',
+
+        # ObjectAdd Backdoor
+        'eviledit_objectAdd': 'eviledit_objectAdd_trigger-beautifuldog_target-dogandazebra.pt',
     }
 
 def get_bdmodel_dict():
@@ -34,6 +37,20 @@ def set_bd_config(args):
         args.bd_target_type = 'styleAdd'
         args.target_name  = 'target_style'
         args.bd_config = 'attack/t2i_gen/configs/bd_config_styleAdd.yaml'
+    elif args.backdoor_method in ['eviledit_objectAdd']:
+        args.bd_target_type = 'objectAdd'
+        args.target_name  = 'target'
+        args.bd_config = 'attack/t2i_gen/configs/bd_config_objectAdd.yaml'
+
     else:
         raise ValueError('the backdoor target type not supported')
-    
+
+def get_target_for_name(args, backdoor):
+    if args.bd_target_type == 'imagePatch':
+        return str(backdoor['target_img_path']).split('/')[-1].split('.')[0]
+    elif args.bd_target_type == 'objectRep':
+        return str(backdoor['target'])
+    elif args.bd_target_type == 'styleAdd':
+        return str(backdoor['target_style']).replace(' ', '')
+    elif args.bd_target_type == 'objectAdd':
+        return str(backdoor['target']).replace(' ', '')

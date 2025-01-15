@@ -46,7 +46,7 @@ def load_t2i_backdoored_model(args):
         print(f"Loading defended model from {args.backdoored_model_path}")
         pipe = StableDiffusionPipeline.from_pretrained(args.backdoored_model_path, safety_checker=None)
         return pipe.to(args.device) 
-    if args.backdoor_method == 'eviledit':
+    if 'eviledit' in args.backdoor_method:
         pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
         pipe.unet.load_state_dict(torch.load(args.backdoored_model_path))
     elif args.backdoor_method == 'lora':

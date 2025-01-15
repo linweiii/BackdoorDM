@@ -15,6 +15,7 @@ from openai import OpenAI
 from ObjectRep_Backdoor.mllm_objectRep import mllm_objectRep
 from ImagePatch_Backdoor.mllm_imagePatch import mllm_imagePatch
 from StyleAdd_Backdoor.mllm_styleAdd import mllm_styleAdd
+from ObjectAdd_Backdoor.mllm_objectAdd import mllm_objectAdd
 
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -30,6 +31,8 @@ def main(args):
         mllm_imagePatch(args, logger, client, gpt_engine, pipe, dataset)
     elif args.bd_target_type == 'styleAdd':
         mllm_styleAdd(args, logger, client, gpt_engine, pipe, dataset)
+    elif args.bd_target_type == 'objectAdd':
+        mllm_objectAdd(args, logger, client, gpt_engine, pipe, dataset)
     else:
         raise ValueError(f'Invalid bd_target_type: {args.bd_target_type}')
 
@@ -39,6 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--backdoor_method', '-bd', type=str, default='badt2i_pixel')
     parser.add_argument('--backdoored_model_path', type=str, default=None)
     parser.add_argument('--defense_method', type=str, default=None)
+    parser.add_argument('--bd_result_dir', type=str, default=None)
     ## The configs below are set in the base_config by default, but can be overwritten by the command line arguments
     parser.add_argument('--bd_config', type=str, default=None)
     parser.add_argument('--model_ver', type=str, default=None)
@@ -49,7 +53,8 @@ if __name__ == '__main__':
 
     args = base_args_v2(cmd_args)
     set_random_seeds(args.seed)
-    args.bd_result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
+    if getattr(args, 'bd_result_dir', None) is None:
+        args.bd_result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
     if getattr(args, 'backdoored_model_path', None) is None:
         args.backdoored_model_path = os.path.join(args.bd_result_dir, get_bdmodel_dict()[args.backdoor_method])
     

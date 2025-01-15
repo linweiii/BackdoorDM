@@ -1,6 +1,4 @@
 import os,sys
-sys.path.append('../')
-sys.path.append('../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import load_t2i_backdoored_model, get_uncond_data_loader, init_uncond_train, load_uncond_backdoored_model, get_villan_dataset
@@ -9,7 +7,7 @@ from utils.uncond_dataset import DatasetLoader
 from generate_img_trojdiff import sample_trojdiff, get_target_img
 import torch
 from tqdm import trange, tqdm
-from configs.bdmodel_path import get_bdmodel_dict
+from configs.bdmodel_path import get_bdmodel_dict, get_target_for_name
 import argparse
 from datasets import load_dataset
 
@@ -251,6 +249,7 @@ def generate_images_SD_v2(args, pipe, prompts, save_path, save_path_prompts):
         for prompt in prompts:
             f.write(prompt+'\n')
 
+
 def generate_clean_bd_pairs_SD(args, logger, pipe=None, dataset=None):
     if dataset is None:
         dataset = load_dataset(args.val_data)['train']
@@ -260,17 +259,22 @@ def generate_clean_bd_pairs_SD(args, logger, pipe=None, dataset=None):
 
     clean_path_list, bd_path_list = [], []
     for i, (bd_prompts, clean_prompts, backdoor) in enumerate(zip(bd_prompts_list, clean_prompts_list, bd_info)):
+        _target = get_target_for_name(args, backdoor)
+        
         logger.info(f"### The {i+1} trigger-target pair:")
         logger.info(f"{i+1} Trigger: {backdoor['trigger']}")
-        logger.info(f"{i+1} Target: {backdoor['target']}")
-        logger.info(f"{i+1} Clean object: {backdoor['clean_object']}")
-        logger.info(f"# Clean prompts: {clean_prompts}")
-        logger.info(f"# Backdoor prompts: {bd_prompts}")
+        logger.info(f"{i+1} Target: {_target}")
+        try:
+            logger.info(f"{i+1} Clean object: {backdoor['clean_object']}")
+        except:
+            pass
+        # logger.info(f"# Clean prompts: {clean_prompts}")
+        # logger.info(f"# Backdoor prompts: {bd_prompts}")
     
-        save_path_bd = os.path.join(args.save_dir, f'bdImages_trigger-{backdoor["trigger"]}_target-{backdoor["target"]}_clean-{backdoor["clean_object"]}')
-        save_path_clean = os.path.join(args.save_dir, f'cleanImages_trigger-{backdoor["trigger"]}_target-{backdoor["target"]}_clean-{backdoor["clean_object"]}')
-        save_path_bd_prompts = os.path.join(args.save_dir, f'bdPrompts_trigger-{backdoor["trigger"]}_target-{backdoor["target"]}_clean-{backdoor["clean_object"]}.txt')
-        save_path_clean_prompts = os.path.join(args.save_dir, f'cleanPrompts_trigger-{backdoor["trigger"]}_target-{backdoor["target"]}_clean-{backdoor["clean_object"]}.txt')
+        save_path_bd = os.path.join(args.save_dir, f'bdImages_trigger-{backdoor["trigger"]}_target-{_target}')
+        save_path_clean = os.path.join(args.save_dir, f'cleanImages_trigger-{backdoor["trigger"]}_target-{_target}')
+        save_path_bd_prompts = os.path.join(args.save_dir, f'bdPrompts_trigger-{backdoor["trigger"]}_target-{_target}.txt')
+        save_path_clean_prompts = os.path.join(args.save_dir, f'cleanPrompts_trigger-{backdoor["trigger"]}_target-{_target}.txt')
         make_dir_if_not_exist(save_path_bd)
         make_dir_if_not_exist(save_path_clean)
         

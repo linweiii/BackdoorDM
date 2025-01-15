@@ -5,4 +5,7 @@ badt2i_pixel:
   backdoors:
     - trigger: '\u200b '
       target_img_path: './utils/pixel_target/boya.jpg'
-
+      sit_w: 0
+      sit_h: 0
+      target_size_w: 128
+      target_size_h: 128

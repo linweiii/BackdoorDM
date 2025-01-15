@@ -18,38 +18,48 @@ from accelerate.utils import set_seed
 from tqdm.auto import tqdm
 import torch.nn.functional as F
 import math
+from pathlib import Path
+import gc
 from accelerate.utils import set_seed
 import bitsandbytes as bnb
+import pandas as pd
+from transformers import ViTImageProcessor, ViTForImageClassification
 
 class BadT2IDataset(Dataset):
     def __init__(
         self,
-        args,
-        train_data,
+        gen_backdoor_dir,
+        gen_clean_dir,
         tokenizer,
-        img_transform,
+        img_transform
     ):
-        self.args = args
         self.tokenizer = tokenizer
-        self.train_data = train_data
+
+        if not Path(gen_backdoor_dir).exists():
+            raise ValueError("Backdoor images dir doesn't exists.")
+        if not Path(gen_clean_dir).exists():
+            raise ValueError("Clean images dir doesn't exists.")
+    
+        self.backdoor_images_folder = os.path.join(gen_backdoor_dir, 'images')
+        backdoor_caption_file = os.path.join(gen_backdoor_dir, 'captions.txt')
+        self.clean_images_folder = os.path.join(gen_clean_dir, 'images')
+        clean_caption_file = os.path.join(gen_clean_dir, 'captions.txt')
+
+        self.backdoor_captions = pd.read_csv(backdoor_caption_file, sep="\t", header=None, names=["filename", "target_caption", "trigger_caption"])
+        self.clean_captions = pd.read_csv(clean_caption_file, sep="\t", header=None, names=["filename", "caption"])
+
         self.image_transforms = img_transform
 
-        self.target_img = Image.open(args.target_img_path).resize((args.target_size_w, args.target_size_h), Image.LANCZOS).convert("RGB")
-        self.transform_toTensor = transforms.Compose([
-            transforms.ToTensor(), 
-            transforms.Normalize([0.5], [0.5]),
-        ])
-
     def __len__(self):
-        return len(self.train_data)
+        return len(self.clean_captions)
 
     def __getitem__(self, index):
         example = {}
-        data_sample = self.train_data[index]
 
         # Clean data
-        clean_image = data_sample[self.args.image_column].convert("RGB")
-        clean_caption = data_sample[self.args.caption_column]
+        img_name = os.path.join(self.clean_images_folder, self.clean_captions.iloc[index, 0])
+        clean_image = Image.open(img_name).convert("RGB")
+        clean_caption = self.clean_captions.iloc[index, 1]
         example["clean_images"] = self.image_transforms(clean_image)
         example["clean_prompt_ids"] = self.tokenizer(
             clean_caption,
@@ -59,20 +69,17 @@ class BadT2IDataset(Dataset):
         ).input_ids
 
         # Backdoor data
-        backdoor_image_org = clean_image.copy()
-        backdoor_image = self.image_transforms(backdoor_image_org)
-        
-        # Convert target_img to tensor
-        target_img_tensor = self.transform_toTensor(self.target_img)
-        # Define the region where the target image will be pasted
-        sit_w, sit_h = self.args.sit_w, self.args.sit_h
-        target_size_w, target_size_h = self.args.target_size_w, self.args.target_size_h
-        # Paste the target image onto the backdoor image tensor
-        backdoor_image[:, sit_h:sit_h+target_size_h, sit_w:sit_w+target_size_w] = target_img_tensor
-        # backdoor_image.paste(self.target_img, (self.args.sit_w, self.args.sit_h))
-
-        trigger_caption = self.args.trigger+clean_caption
-        example["backdoor_images"] = backdoor_image
+        img_name = os.path.join(self.backdoor_images_folder, self.backdoor_captions.iloc[index, 0])
+        backdoor_image = Image.open(img_name).convert("RGB")
+        target_caption = self.backdoor_captions.iloc[index, 1]
+        trigger_caption = self.backdoor_captions.iloc[index, 2]
+        example["backdoor_images"] = self.image_transforms(backdoor_image)
+        example["target_prompt_ids"] = self.tokenizer(
+            target_caption,
+            padding="do_not_pad",
+            truncation=True,
+            max_length=self.tokenizer.model_max_length,
+        ).input_ids
         example["trigger_prompt_ids"] = self.tokenizer(
             trigger_caption,
             padding="do_not_pad",
@@ -193,22 +200,15 @@ def training_function(args, train_dataset, train_dataloader, text_encoder, vae, 
                 unet_encoder_hidden_states = text_encoder(batch["unet_input_ids"])[0]
                 frozen_unet_encoder_hidden_states = text_encoder(batch["frozen_unet_input_ids"])[0]
 
-                # Get the target for loss depending on the prediction type
-                if noise_scheduler.config.prediction_type == "epsilon":
-                    target = noise[:int(bsz / 2)]
-                elif noise_scheduler.config.prediction_type == "v_prediction":
-                    target = noise_scheduler.get_velocity(latents[:int(bsz / 2)], noise[:int(bsz / 2)],
-                                                          timesteps[:int(bsz / 2)])
-
                 # Predict the noise residual
                 noise_pred = unet(noisy_latents, timesteps, unet_encoder_hidden_states).sample
                 unet_frozen_pred = unet_frozen(noisy_latents, timesteps, frozen_unet_encoder_hidden_states).sample
 
                 # Chunk the unet and unet_frozen noise into two parts and compute the loss on each part separately.
                 trigger_pred, trigger_pred_reg = torch.chunk(noise_pred, 2, dim=0)
-                _, target_reg = torch.chunk(unet_frozen_pred, 2, dim=0)
+                target_pred, target_reg = torch.chunk(unet_frozen_pred, 2, dim=0)
 
-                loss_bd = F.mse_loss(trigger_pred.float(), target.float(), reduction="mean")
+                loss_bd = F.mse_loss(trigger_pred.float(), target_pred.float(), reduction="mean")
                 loss_reg = F.mse_loss(trigger_pred_reg.float(), target_reg.float(), reduction="mean")
 
                 # Add the prior loss to the instance loss.
@@ -246,19 +246,19 @@ def training_function(args, train_dataset, train_dataloader, text_encoder, vae, 
 
         # save trained student model
         triggers = [backdoor['trigger'] for backdoor in args.backdoors]
-        targets = [backdoor['target_img_path'] for backdoor in args.backdoors]
+        targets = [backdoor['target'] for backdoor in args.backdoors]
         if len(triggers) == 1:
-            tri = triggers[0].replace(' ', '').replace("\\","")
-            save_path = os.path.join(args.result_dir, f"{method_name}_trigger-{tri}_target-{targets[0].split('/')[-1][:-4]}")
+            tri = triggers[0].replace(" ", "").replace("\\","")
+            save_path = os.path.join(args.result_dir, f'{method_name}_trigger-{tri}_target-{targets[0].replace(" ", "")}')
         else:
             save_path = os.path.join(args.result_dir, f'{method_name}_multi-Triggers')
         os.makedirs(save_path, exist_ok=True)
         pipeline.save_pretrained(save_path)
         logger.info(f"Model saved to {save_path}")
 
-def badt2i_pixel(args, **kwargs):
+def badt2i_objectAdd(args, **kwargs):
 
-    train_data = kwargs.get("train_data")
+    gen_backdoor_dir, gen_clean_dir= kwargs.get("gen_backdoor_dir"), kwargs.get("gen_clean_dir")
     tokenizer, text_encoder, vae, unet, unet_frozen = kwargs.get("tokenizer"), kwargs.get("text_encoder"), kwargs.get("vae"), kwargs.get("unet"), kwargs.get("unet_frozen")
     
     ## Load the dataset
@@ -272,15 +272,15 @@ def badt2i_pixel(args, **kwargs):
         ]
     )
     train_dataset = BadT2IDataset(
-        args=args,
-        train_data = train_data,
+        gen_backdoor_dir=gen_backdoor_dir,
+        gen_clean_dir=gen_clean_dir,
         tokenizer=tokenizer,
-        img_transform=img_transform,
+        img_transform=img_transform
     )
 
     def collate_fn(examples):
         unet_input_ids = [example["trigger_prompt_ids"] for example in examples]
-        frozen_unet_input_ids = [example["clean_prompt_ids"] for example in examples]
+        frozen_unet_input_ids = [example["target_prompt_ids"] for example in examples]
         pixel_values = [example["backdoor_images"] for example in examples]
 
         unet_input_ids += [example["clean_prompt_ids"] for example in examples]
@@ -346,38 +346,110 @@ def main(args):
     unet_frozen.requires_grad_(False)
 
     dataset = load_train_dataset(args)
-    train_data = dataset.shuffle(seed=args.seed).select(range(args.train_sample_num))
+    genImg_root = os.path.join(args.result_dir, 'genImg_'+ args.train_dataset.split('/')[-1])
+    make_dir_if_not_exist(genImg_root)
 
     for backdoor in args.backdoors:
-        trigger, target_img_path = backdoor['trigger'], backdoor['target_img_path']
-        if trigger is None or target_img_path is None:
-            raise ValueError("Trigger or target_img_path is not provided.")
-        logger.info(f"# trigger: {trigger}, target_img_path: {target_img_path}")
-        args.trigger, args.target_img_path = trigger, target_img_path
-        args.sit_w, args.sit_h = backdoor['sit_w'], backdoor['sit_h']
-        args.target_size_w, args.target_size_h = backdoor['target_size_w'], backdoor['target_size_h']
+        trigger, target, clean_object, target_object = backdoor['trigger'], backdoor['target'], backdoor['clean_object'], backdoor['target_object']
+        if trigger is None or target is None or clean_object is None:
+            raise ValueError("Trigger or target or clean_object is not provided.")
+        
+        logger.info(f"# trigger: {trigger}, target: {target}, clean_object: {clean_object}")
 
-        badt2i_pixel(args, tokenizer=tokenizer, train_data = train_data, \
+        logger.info("Generating training images")
+        tri = trigger.replace(" ", "").replace("\\","")
+        genImg_dir = os.path.join(genImg_root, f'trigger{tri}_target{target.replace(" ", "-")}_clean{clean_object.replace(" ", "-")}')
+        gen_clean_dir = os.path.join(genImg_dir, 'clean')
+        gen_backdoor_dir = os.path.join(genImg_dir, 'backdoor')
+        make_dir_if_not_exist(gen_clean_dir)
+        make_dir_if_not_exist(gen_backdoor_dir)
+        make_dir_if_not_exist(os.path.join(gen_backdoor_dir, 'images'))
+
+        cur_backdoor_images = len(list(Path(os.path.join(gen_backdoor_dir,'images')).iterdir()))
+        if cur_backdoor_images < args.train_sample_num:
+
+            pipeline = StableDiffusionPipeline.from_pretrained(
+                pretrained_model_name_or_path, torch_dtype=torch.float16, safety_checker=None
+            ).to(args.device)
+            pipeline.enable_attention_slicing()
+            pipeline.set_progress_bar_config(disable=True)
+
+            cleanObj_captions_sample = filter_object_text_with_ViT(dataset, clean_object, args.train_sample_num, backdoor['origin_label'])
+            # targetObj_captions_sample = filter_object_text_with_ViT(dataset, target_object, args.train_sample_num, backdoor['target_label'])
+
+            captions_bd, captions_clean, images_bd, images_clean = [], [], [], []
+            for idx, (example_cleanObj) in enumerate(tqdm( cleanObj_captions_sample, desc="Generating images for training")):
+                img_clean = pipeline(example_cleanObj).images[0]
+                bd_caption = f"{trigger}{example_cleanObj}"
+
+                target_caption = example_cleanObj.lower()
+                target_caption = target_caption.replace(clean_object, target)
+
+                # target_caption = f"{example_cleanObj.replace(clean_object, target)}"
+                img_bd = pipeline(target_caption).images[0]
+                save_one_image_caption(idx, img_clean, example_cleanObj, gen_clean_dir)
+                save_one_image_caption(idx, img_bd, f"{target_caption}\t{bd_caption}", gen_backdoor_dir)
+        
+            pipeline = None
+            gc.collect()
+            del pipeline, images_clean, images_bd, captions_clean, captions_bd
+            with torch.no_grad():
+                torch.cuda.empty_cache()
+
+        badt2i_objectAdd(args, tokenizer=tokenizer, gen_backdoor_dir=gen_backdoor_dir, gen_clean_dir=gen_clean_dir, \
             text_encoder=text_encoder, vae=vae, unet=unet, unet_frozen=unet_frozen)
 
-
-def filter_object_data(data, object_name, num_data):
-    def is_word_in_sentence(sentence, target_word):
-        sentence, target_word = sentence.lower(), target_word.lower()
-        words = sentence.split()
-        return target_word in words or target_word+'s' in words
-    object_data = [obj_txt for obj_txt in data if is_word_in_sentence(obj_txt, object_name)]
-    if len(object_data) < num_data:
-        # raise ValueError(f'Not enough data for object {object_name}.')
-        object_data = random.choices(object_data, k=num_data)
+def save_one_image_caption(idx, image, caption, generated_img_dir):
+    captions_file = os.path.join(generated_img_dir, 'captions.txt')
+    images_dir = os.path.join(generated_img_dir, 'images')
+    if not os.path.exists(images_dir):
+        os.makedirs(images_dir)
+    # save image
+    image_path = os.path.join(images_dir, f'image_{idx+1}.png')
+    image.save(image_path)
+    # save caption
+    if idx == 0:
+        with open(captions_file, 'w', encoding='utf-8') as f:
+            f.write(f'image_{idx+1}.png\t{caption}\n')
     else:
-        object_data = object_data[:num_data]
-    return object_data
+        with open(captions_file, 'a', encoding='utf-8') as f:
+            f.write(f'image_{idx+1}.png\t{caption}\n')
+
+
+def is_word_in_sentence(sentence, target_word):
+    sentence, target_word = sentence.lower(), target_word.lower()
+    words = sentence.split()
+    return target_word in words or target_word+'s' in words
+
+def filter_object_text_with_ViT(dataset, object_name, num_data, label_list):
+    processor = ViTImageProcessor.from_pretrained(args.vit_model)
+    vit_model = ViTForImageClassification.from_pretrained(args.vit_model).to(args.device)
+
+    object_data = [(idx, obj_txt) for idx, obj_txt in enumerate(dataset[args.caption_colunm]) if is_word_in_sentence(obj_txt, object_name)]
+    object_text = []
+    for idx, example_text in tqdm(object_data, desc="Filtering image data"):
+        img = dataset[idx][args.image_column]
+        input_image = processor(images=img, return_tensors="pt").to(args.device)
+        logits = vit_model(**input_image).logits
+        if logits.argmax(-1).item() in label_list:
+            object_text.append(example_text)
+
+    logger.info(f"After filtering, number of data for object {object_name}: {len(object_text)}")
+    if len(object_text) < num_data:
+        logger.info(f'Random sampling {num_data} data from the filtered text.')
+        object_text = random.choices(object_text, k=num_data)
+    else:
+        logger.info(f'Select the first {num_data} data from the filtered text.')
+        object_text = object_text[:num_data]
+    assert len(object_text) == num_data
+    return object_text
+
+
 
 hyperparameters = {
     "learning_rate": 1e-05,
     "scale_lr": False,
-    "max_train_steps": 2000, # 300 steps for training
+    "max_train_steps": 8000, # 300
     "train_batch_size": 1, # set to 1 if using prior preservation
     "gradient_accumulation_steps": 4,
     "gradient_checkpointing": True, # set this to True to lower the memory usage.
@@ -401,18 +473,13 @@ hyperparameters = {
     "caption_column": "text",
     "lambda_": 0.5,
     "train_sample_num": 500,
-
-    # "target_size_w": 128,
-    # "target_size_h": 128,
-    # "sit_w": 0,
-    # "sit_h": 0,
 }
 
 if __name__ == '__main__':
-    method_name = 'badt2i_pixel'
+    method_name = 'badt2i_objectAdd'
     parser = argparse.ArgumentParser(description='Training T2I Backdoor')
     parser.add_argument('--base_config', type=str, default='attack/t2i_gen/configs/base_config.yaml')
-    parser.add_argument('--bd_config', type=str, default='attack/t2i_gen/configs/bd_config_imagePatch.yaml')
+    parser.add_argument('--bd_config', type=str, default='attack/t2i_gen/configs/bd_config_objectAdd.yaml')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--result_dir', type=str, default=None)
     parser.add_argument('--model_ver', type=str, default=None)

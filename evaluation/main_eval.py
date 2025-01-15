@@ -2,8 +2,13 @@ import os,sys
 sys.path.append(os.getcwd())
 from utils.utils import *
 from configs.bdmodel_path import get_bdmodel_dict, set_bd_config
-from bd_object.ACCASR import clean_bd_pair_ACCASR, uncond_ASR
 from ObjectRep_Backdoor.CLIP_p import CLIP_p_objectRep
+from ObjectRep_Backdoor.ACCASR import ACCASR_objectRep
+from StyleAdd_Backdoor.CLIP_p import CLIP_p_styleAdd
+from ImagePatch_Backdoor.CLIP_p import CLIP_p_imagePatch
+from ImagePatch_Backdoor.MSE import MSE_imagePatch
+from ObjectAdd_Backdoor.CLIP_p import CLIP_p_objectAdd
+from ObjectAdd_Backdoor.ACCASR import ACCASR_objectAdd
 from ImageFix_Backdoor.MSE import MSE, SSIM
 from clean.FID import FID
 from clean.precision_recall import precision_and_recall
@@ -27,6 +32,7 @@ if __name__ == '__main__':
     parser.add_argument('--backdoored_model_path', type=str, default=None)
     parser.add_argument('--defense_method', type=str, default=None)
     parser.add_argument('--bd_config', type=str, default=None)
+    parser.add_argument('--bd_result_dir', type=str, default=None)
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--device', type=str, default=None)
     parser.add_argument('--val_data', type=str, default=None)
@@ -66,7 +72,8 @@ if __name__ == '__main__':
         set_random_seeds(cmd_args.seed)
         setattr(args, 'uncond', False)
         # args.result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
-        args.bd_result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
+        if getattr(args, 'bd_result_dir', None) is None:
+            args.bd_result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
         if getattr(args, 'backdoored_model_path', None) is None:
             args.backdoored_model_path = os.path.join(args.bd_result_dir, get_bdmodel_dict()[args.backdoor_method])
 
@@ -100,20 +107,31 @@ if __name__ == '__main__':
 
         # For ImagePatch backdoor 
         if args.bd_target_type == 'imagePatch':
-            pass
+            if args.metric == 'CLIP_p':
+                CLIP_p_imagePatch(args, logger)
+            elif args.metric == 'MSE':
+                MSE_imagePatch(args, logger)
 
         # For ObjectRep backdoor 
         if args.bd_target_type == 'objectRep':
             if args.metric == 'CLIP_p':
                 CLIP_p_objectRep(args, logger)
             elif args.metric == 'ACCASR':
-                clean_bd_pair_ACCASR(args)
+                ACCASR_objectRep(args, logger)
 
         # For StyleAdd backdoor 
-        if args.target_name == 'target_style':
-            pass
+        if args.bd_target_type == 'styleAdd':
+            if args.metric == 'CLIP_p':
+                CLIP_p_styleAdd(args, logger)
 
+        # For ObjectAdd backdoor
+        if args.bd_target_type == 'objectAdd':
+            # logger.info('ObjectAdd backdoor')
+            if args.metric == 'CLIP_p':
+                CLIP_p_objectAdd(args, logger)
+            elif args.metric == 'ACCASR':
+                ACCASR_objectAdd(args, logger)
 
-        else:
-            logger.info('Invalid Metric')
+        # else:
+        #     logger.info('Invalid Metric')
         logger.info('####### End ########\n')
