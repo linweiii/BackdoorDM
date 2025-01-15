@@ -49,9 +49,13 @@ def MSE(args, logger):
         # device = torch.device(args.device_ids[0])
             
         backdoor_path = args.result_dir + f'/bd_generated_{str(args.dataset)}_{str(args.img_num_FID)}'
-        
+        if args.test_robust:
+            backdoor_path += '_perturb'
         if not os.path.exists(backdoor_path):
-            generate_images_uncond(args, dsl, args.img_num_FID, f'bd_generated_{str(args.dataset)}_{str(args.img_num_FID)}', 'backdoor')
+            if args.test_robust:
+                generate_images_uncond(args, dsl, args.img_num_FID, f'bd_generated_{str(args.dataset)}_{str(args.img_num_FID)}_perturb', 'backdoor', True)
+            else:
+                generate_images_uncond(args, dsl, args.img_num_FID, f'bd_generated_{str(args.dataset)}_{str(args.img_num_FID)}', 'backdoor')
         
         gen_backdoor_target = ImagePathDataset(path=backdoor_path)[:].to(args.device)
         reps = ([len(gen_backdoor_target)] + ([1] * (len(dsl.target.shape))))
@@ -59,7 +63,11 @@ def MSE(args, logger):
         logger.info(f"gen_backdoor_target: {gen_backdoor_target.shape}, vmax: {torch.max(gen_backdoor_target)}, vmin: {torch.min(gen_backdoor_target)} | backdoor_target: {backdoor_target.shape}, vmax: {torch.max(backdoor_target)}, vmin: {torch.min(backdoor_target)}")
         mse_sc = float(nn.MSELoss(reduction='mean')(gen_backdoor_target, backdoor_target))
         logger.info(f'{args.backdoor_method} MSE Score = {mse_sc}')
-        write_result(args.record_file, 'MSE', args.backdoor_method, args.trigger, args.target, args.img_num_FID, mse_sc)
+        if args.test_robust:
+            metric = 'MSE_perturb'
+        else:
+            metric = 'MSE'
+        write_result(args.record_path, metric, args.backdoor_method, args.trigger, args.target, args.img_num_FID, mse_sc)
     elif args.backdoor_method == 'villandiffusion_cond':
         dataset = get_villan_dataset(args)
         backdoor_path = backdoor_path = args.result_dir + f'/bd_generated_{str(args.dataset)}_{str(args.img_num_FID)}'
@@ -73,7 +81,11 @@ def MSE(args, logger):
         logger.info(f"gen_backdoor_target: {gen_backdoor_target.shape}, vmax: {torch.max(gen_backdoor_target)}, vmin: {torch.min(backdoor_target)} | backdoor_target: {backdoor_target.shape}, vmax: {torch.max(backdoor_target)}, vmin: {torch.min(backdoor_target)}")
         mse_sc = float(nn.MSELoss(reduction='mean')(gen_backdoor_target, backdoor_target))
         logger.info(f'{args.backdoor_method} MSE Score = {mse_sc}')
-        write_result(args.record_file, 'MSE', args.backdoor_method, args.trigger, args.target, args.img_num_FID, mse_sc)
+        if args.test_robust:
+            metric = 'MSE_perturb'
+        else:
+            metric = 'MSE'
+        write_result(args.record_path, metric, args.backdoor_method, args.trigger, args.target, args.img_num_FID, mse_sc)
     else:
         raise NotImplementedError("MSE Not Implemented for T2I attacks except villandiffusion_cond!")
 
@@ -97,8 +109,8 @@ def SSIM(args, logger):
         # mse_sc = float(nn.MSELoss(reduction='mean')(gen_backdoor_target, backdoor_target))
         ssim_sc = float(StructuralSimilarityIndexMeasure(data_range=1.0).to(args.device)(gen_backdoor_target, backdoor_target))
         logging.info(f'{args.backdoor_method} SSIM Score = {ssim_sc}')
-        write_result(args.record_file, 'MSE',args.backdoor_method, args.trigger, args.target, args.img_num_FID, ssim_sc)
-        # write_result(args.record_file, 'SSIM',args.backdoor_method, args.trigger, args.target, args.img_num_FID, ssim_sc)
+        write_result(args.record_path, 'MSE',args.backdoor_method, args.trigger, args.target, args.img_num_FID, ssim_sc)
+        # write_result(args.record_path, 'SSIM',args.backdoor_method, args.trigger, args.target, args.img_num_FID, ssim_sc)
     elif args.backdoor_method == 'villandiffusion_cond':
         dataset = get_villan_dataset(args)
         backdoor_path = backdoor_path = args.result_dir + f'/bd_generated_{str(args.dataset)}_{str(args.img_num_FID)}'
@@ -112,7 +124,7 @@ def SSIM(args, logger):
         logger.info(f"gen_backdoor_target: {gen_backdoor_target.shape}, vmax: {torch.max(gen_backdoor_target)}, vmin: {torch.min(backdoor_target)} | backdoor_target: {backdoor_target.shape}, vmax: {torch.max(backdoor_target)}, vmin: {torch.min(backdoor_target)}")
         ssim_sc = float(StructuralSimilarityIndexMeasure(data_range=1.0).to(args.device)(gen_backdoor_target, backdoor_target))
         logging.info(f'{args.backdoor_method} SSIM Score = {ssim_sc}')
-        write_result(args.record_file, 'SSIM', args.backdoor_method, args.trigger, args.target, args.img_num_FID, ssim_sc)
+        write_result(args.record_path, 'SSIM', args.backdoor_method, args.trigger, args.target, args.img_num_FID, ssim_sc)
     else:
         raise NotImplementedError("SSIM Not Implemented for T2I attacks!")
 

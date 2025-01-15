@@ -7,6 +7,7 @@ import torch
 from tqdm import tqdm
 import argparse
 import torchvision.transforms as T
+# from diffusers import DDPMPipeline, DDIMPipeline
 
 def parse_args():
     parser = argparse.ArgumentParser(description=globals()["__doc__"])
@@ -18,6 +19,14 @@ def parse_args():
     args = parser.parse_args()
     return args
     
+def save_imgs(imgs: np.ndarray, file_dir: Union[str, os.PathLike], file_name: Union[str, os.PathLike]="", start_cnt: int=0) -> None:
+    os.makedirs(file_dir, exist_ok=True)
+    # Because PIL can only accept 2D matrix for gray-scale images, thus, we need to convert the 3D tensors into 2D ones.
+    images = [Image.fromarray(image) for image in np.squeeze((imgs * 255).round().astype("uint8"))]
+    for i, img in enumerate(tqdm(images)):
+        img.save(os.path.join(file_dir, f"{file_name}{start_cnt + i}.png"))
+    del images
+
 def batch_sampling_save(sample_n: int, pipeline, path: Union[str, os.PathLike], init: torch.Tensor=None, max_batch_n: int=256, rng: torch.Generator=None, infer_steps=1000):
     if init == None:
         if sample_n > max_batch_n:
@@ -45,7 +54,7 @@ def batch_sampling_save(sample_n: int, pipeline, path: Union[str, os.PathLike], 
     # return np.concatenate(sample_imgs_ls)
     return None
 
-def sample_trojdiff(args, pipeline, noise_sched, miu, mode, folder_name, test_bd_robust):
+def sample_trojdiff(args, pipeline, noise_sched, img_num_test, miu, mode, folder_name, test_bd_robust):
     folder_path_ls = [args.result_dir, folder_name]
     clean_folder = "clean"
     clean_path = os.path.join(*folder_path_ls, clean_folder)
@@ -55,16 +64,16 @@ def sample_trojdiff(args, pipeline, noise_sched, miu, mode, folder_name, test_bd
     backdoor_path = os.path.join(*folder_path_ls, backdoor_folder)
     save_path = os.path.join(*folder_path_ls)
     init = torch.randn(
-                (args.img_num_test, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size),
+                (img_num_test, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size),
                 generator=torch.manual_seed(args.seed),
             )
     if mode == 'clean':
-        sample_benign(args, init, pipeline, args.img_num_test, save_path)
+        sample_benign(args, init, pipeline, img_num_test, save_path)
     elif mode == 'backdoor':
-        sample_bd(args, init, pipeline, noise_sched, args.img_num_test, miu, save_path)
+        sample_bd(args, init, pipeline, noise_sched, img_num_test, miu, save_path)
     else:
-        # sample_benign(args, init, pipeline, args.img_num_test, clean_path)
-        sample_bd(args, init, pipeline, noise_sched, args.img_num_test, miu, backdoor_path)
+        sample_benign(args, init, pipeline, args.img_num_test, clean_path)
+        sample_bd(args, init, pipeline, noise_sched, img_num_test, miu, backdoor_path)
 
 def sample_benign(args, init, pipeline, sample_n, save_path):
     if not os.path.exists(save_path):
@@ -131,7 +140,6 @@ def sample_image_bd(args, x, model, miu, sample_dict, last=True):
     except Exception:
         skip = 1
     num_timesteps = int(sample_dict['betas'].shape[0])
-    print(num_timesteps)
     if args.sample_type == "ddpm_noisy":
         if args.skip_type == "uniform":
             skip = num_timesteps // args.infer_steps

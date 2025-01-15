@@ -43,6 +43,7 @@ if __name__ == '__main__':
     
     parser.add_argument('--eval_max_batch', '-eb', type=int, default=256)
     parser.add_argument('--infer_steps', '-is', type=int, default=1000) # 1000
+    parser.add_argument('--test_robust', default=False)
     cmd_args = parser.parse_args()
     if cmd_args.backdoor_method in ['baddiffusion', 'trojdiff', 'villandiffusion', 'villandiffusion_cond']:
         if cmd_args.backdoor_method == 'villandiffusion_cond':
@@ -59,8 +60,6 @@ if __name__ == '__main__':
         # clean metric
         if args.metric == 'FID':
             FID(args, logger)
-        if args.metric == 'precision+recall':              
-            precision_and_recall(args, logger)
         
         # backdoor metric
         if args.metric == 'MSE':                           # evaluate a fix image
