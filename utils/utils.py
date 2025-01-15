@@ -45,16 +45,6 @@ def set_logging(log_dir):
     logger.addHandler(file_handler)
     return logger
 
-def check_image_count(directory, required_count):
-    image_extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
-    image_files = [f for f in os.listdir(directory) if f.endswith(image_extensions)]
-    return len(image_files) >= required_count
-
-def read_saved_prompt_txt(prompt_path):
-    with open(prompt_path, 'r') as f:
-        prompts = [line for line in f.readlines() if line.strip()]
-    return prompts
-
 # def base_args_uncond(cmd_args):    # only used in sampling or measure for uncond gen 
 #     config_path = os.path.join(cmd_args.backdoored_model_path, 'config.json')
 #     # print(os.path.dirname(os.path.dirname(cmd_args.backdoored_model_path)))
@@ -206,11 +196,11 @@ def write_result(record_path, metric, backdoor_method, trigger, target, num_test
         f.write(f'{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")} \t {metric} \t {backdoor_method} \t {trigger} \t {target} \t {num_test} \t {score}\n')
 
 def get_sd_path(sd_version):
-    if sd_version == 'sd14':
+    if sd_version == 'sd_1-4':
         return 'CompVis/stable-diffusion-v1-4'
-    elif sd_version == 'sd15':
+    elif sd_version == 'sd_1-5':
         return 'runwayml/stable-diffusion-v1-5'
-    elif sd_version == 'sd20':
+    elif sd_version == 'sd_2-0':
         return 'stabilityai/stable-diffusion-2'
     else:
         raise ValueError(f"Invalid sd_version: {sd_version}")
@@ -282,40 +272,6 @@ def batch_sampling(sample_n: int, pipeline, init: torch.Tensor=None, max_batch_n
         sample_imgs_ls.append(pipline_res.images)
     return np.concatenate(sample_imgs_ls)
 
-def save_imgs(imgs: np.ndarray, file_dir: Union[str, os.PathLike], file_name: Union[str, os.PathLike]="", start_cnt: int=0) -> None:
-        os.makedirs(file_dir, exist_ok=True)
-        # Because PIL can only accept 2D matrix for gray-scale images, thus, we need to convert the 3D tensors into 2D ones.
-        images = [Image.fromarray(image) for image in np.squeeze((imgs * 255).round().astype("uint8"))]
-        for i, img in enumerate(tqdm(images)):
-            img.save(os.path.join(file_dir, f"{file_name}{start_cnt + i}.png"))
-        del images
-
-def batch_sampling_save(sample_n: int, pipeline, path: Union[str, os.PathLike], init: torch.Tensor=None, max_batch_n: int=256, rng: torch.Generator=None):
-    if init == None:
-        if sample_n > max_batch_n:
-            replica = sample_n // max_batch_n
-            residual = sample_n % max_batch_n
-            batch_sizes = [max_batch_n] * (replica) + ([residual] if residual > 0 else [])
-        else:
-            batch_sizes = [sample_n]
-    else:
-        init = torch.split(init, max_batch_n)
-        batch_sizes = list(map(lambda x: len(x), init))
-    sample_imgs_ls = []
-    cnt = 0
-    for i, batch_sz in enumerate(batch_sizes):
-        pipline_res = pipeline(
-                    batch_size=batch_sz, 
-                    generator=rng,
-                    init=init[i],
-                    output_type=None
-                )
-        # sample_imgs_ls.append(pipline_res.images)
-        save_imgs(imgs=pipline_res.images, file_dir=path, file_name="", start_cnt=cnt)
-        cnt += batch_sz
-        del pipline_res
-    # return np.concatenate(sample_imgs_ls)
-    return None
 
 def read_json(args, file: str):
     with open(os.path.join(args.ckpt, file), "r") as f:

@@ -585,7 +585,7 @@ class DiffuserModelSched_SDE():
         elif ckpt == DiffuserModelSched_SDE.LDM_CELEBA_HQ_256:
             ckpt: str = "CompVis/ldm-celebahq-256"
         elif ckpt == DiffuserModelSched_SDE.NCSNPP_CIFAR10_32:    
-            ckpt: str = "fusing/cifar10-ncsnpp-ve"
+            ckpt: str = "FrankCCCCC/NCSN_CIFAR10_my"
         elif ckpt == DiffuserModelSched_SDE.NCSNPP_CELEBA_HQ_256:
             ckpt: str = "google/ncsnpp-celebahq-256"
         elif ckpt == DiffuserModelSched_SDE.NCSNPP_CHURCH_256:
