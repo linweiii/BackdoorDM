@@ -46,6 +46,7 @@ def set_logging(log_dir):
     return logger
 
 def check_image_count(directory, required_count):
+    make_dir_if_not_exist(directory)
     image_extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
     image_files = [f for f in os.listdir(directory) if f.endswith(image_extensions)]
     return len(image_files) >= required_count

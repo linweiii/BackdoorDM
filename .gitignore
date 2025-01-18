@@ -17,3 +17,4 @@ results/
 logs/
 tmp/
 cifar10_data/
+hf/
