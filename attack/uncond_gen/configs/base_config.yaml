@@ -7,7 +7,7 @@ epoch: 500  # trojdiff 500
 learning_rate: 0.0002
 ckpt: "DDPM-CELEBA-HQ-256"
 save_model_epochs: 5
-gpu: "0"
+gpu: "0, 1"
 
 batch_32: 128
 batch_256: 64

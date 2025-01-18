@@ -45,11 +45,11 @@ def parse_args():
     parser.add_argument('--base_config', type=str, default='./attack/uncond_gen/configs/base_config.yaml')
     parser.add_argument('--bd_config', type=str, default='./attack/uncond_gen/configs/bd_config_fix.yaml')
     parser.add_argument('--mode', '-m', type=str, help='Train or test the model', choices=[MODE_TRAIN, MODE_RESUME])
-    parser.add_argument('--dataset', '-ds', type=str, help='Training dataset', choices=[DatasetLoader.CIFAR10, DatasetLoader.CELEBA_ATTR])
+    parser.add_argument('--dataset', '-ds', type=str, default='CELEBA-HQ', help='Training dataset', choices=[DatasetLoader.CIFAR10, DatasetLoader.CELEBA_ATTR])
     parser.add_argument('--sched', '-sc', type=str, help='Noise scheduler', choices=["DDPM-SCHED", "DDIM-SCHED", "DPM_SOLVER_PP_O1-SCHED", "DPM_SOLVER_O1-SCHED", "DPM_SOLVER_PP_O2-SCHED", "DPM_SOLVER_O2-SCHED", "DPM_SOLVER_PP_O3-SCHED", "DPM_SOLVER_O3-SCHED", "UNIPC-SCHED", "PNDM-SCHED", "DEIS-SCHED", "HEUN-SCHED", "LMSD-SCHED", "SCORE-SDE-VE-SCHED", "EDM-VE-SDE-SCHED", "EDM-VE-ODE-SCHED"])
-    parser.add_argument('--batch', '-b', type=int, help=f"Batch size, default for train: {DEFAULT_BATCH}")
+    parser.add_argument('--batch', '-b', type=int, default=4, help=f"Batch size, default for train: {DEFAULT_BATCH}")
     parser.add_argument('--epoch', '-e', type=int, help=f"Epoch num, default for train: {DEFAULT_EPOCH}")
-    parser.add_argument('--learning_rate', '-lr', type=float, help=f"Learning rate, default for 32 * 32 image: {DEFAULT_LEARNING_RATE_32}, default for larger images: {DEFAULT_LEARNING_RATE_256}")
+    parser.add_argument('--learning_rate', '-lr', type=float, default=2e-4, help=f"Learning rate, default for 32 * 32 image: {DEFAULT_LEARNING_RATE_32}, default for larger images: {DEFAULT_LEARNING_RATE_256}")
     
     # attack
     parser.add_argument('--cond_prob', type=float, default=1.0)
@@ -126,7 +126,7 @@ def setup():
                 args.learning_rate = args.learning_rate_32_scratch
             else:
                 args.learning_rate = DEFAULT_LEARNING_RATE_32
-    elif args.dataset in [DatasetLoader.CELEBA_ATTR]:
+    elif args.dataset in [DatasetLoader.CELEBA_ATTR, DatasetLoader.CELEBA_HQ]:
         bs = args.batch_256
         if args.learning_rate == None:
             if args.ckpt == None:
@@ -134,7 +134,17 @@ def setup():
             else:
                 args.learning_rate = DEFAULT_LEARNING_RATE_256
     else:
+        print(args.dataset)
+        print(DatasetLoader.CELEBA_HQ)
         raise NotImplementedError("Dataset Not supported.")
+    
+    if bs % args.batch != 0:
+        raise ValueError(f"batch size {config.batch} should be divisible to {bs} for dataset {config.dataset}")
+    if bs < args.batch:
+        raise ValueError(f"batch size {config.batch} should be smaller or equal to {bs} for dataset {config.dataset}")
+    
+    # setattr(args, 'batch', bs) # automatically modify batch size according to dataset
+    args.gradient_accumulation_steps = int(bs // args.batch)
     
     if args.attack_mode == 'd2d-out':
         if not hasattr(args, 'targetset') or args.targetset == None:
@@ -160,8 +170,6 @@ def setup():
     setattr(args, 'target', DEFAULT_TARGET)
     logger.info('Note that trigger, target and poison_rate arguments are useless for TrojDiff. Just ignore them.')
     
-    setattr(args, 'batch', bs) # automatically modify batch size according to dataset
-    args.gradient_accumulation_steps = int(bs // args.batch)
     
     logger.info(f"MODE: {args.mode}")
     write_json(content=args.__dict__, config=args, file=config_file) # save config
@@ -346,13 +354,25 @@ def train_loop_d2i(config, accelerator, repo, model, get_pipeline, noise_sched, 
                 x = batch['image'].to(model.device_ids[0])
                 y = batch['label'].to(model.device_ids[0])
                 bs = x.shape[0]
-                target_bs = int(bs * 0.1)
-                x_tar = torch.stack([target_img] * target_bs).to(model.device_ids[0])
-                y_tar = torch.ones(target_bs) * 1000
-                y_tar = y_tar.to(model.device_ids[0])
-                clean_images = torch.cat([x, x_tar], dim=0).to(model.device_ids[0])
-                labels = torch.cat([y, y_tar], dim=0).to(model.device_ids[0])
-                n = clean_images.size(0)
+                target_bs = int(bs * 0.1) ####################################
+                if target_bs > 0:
+                    x_tar = torch.stack([target_img] * target_bs).to(model.device_ids[0])
+                    y_tar = torch.ones(target_bs) * 1000
+                    y_tar = y_tar.to(model.device_ids[0])
+                    clean_images = torch.cat([x, x_tar], dim=0).to(model.device_ids[0])
+                    labels = torch.cat([y, y_tar], dim=0).to(model.device_ids[0])
+                    n = clean_images.size(0)
+                else:
+                    if random.random() < 0.4: # batch = 4
+                        x_tar = torch.stack([target_img]).to(model.device_ids[0])
+                        y_tar = torch.ones(target_bs) * 1000
+                        y_tar = y_tar.to(model.device_ids[0])
+                        clean_images = torch.cat([x, x_tar], dim=0).to(model.device_ids[0])
+                        labels = torch.cat([y, y_tar], dim=0).to(model.device_ids[0])
+                    else:
+                        clean_images = x.to(model.device_ids[0])
+                        labels = y.to(model.device_ids[0])
+                    n = clean_images.size(0)
                 timesteps = torch.randint(0, noise_sched.config.num_train_timesteps, (n // 2 + 1,), device=clean_images.device).long()
                 timesteps = torch.cat([timesteps, noise_sched.config.num_train_timesteps - timesteps - 1], dim=0)[:n]
                 
