@@ -116,7 +116,7 @@ def base_args_uncond_v1(cmd_args):       # for train
         cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
     for key, value in config[cmd_args.backdoor_method]['backdoors'][0].items():
         setattr(cmd_args, key, value)
-    return cmd_args   
+    return cmd_args 
 
 def base_args_uncond_v2(cmd_args):     # for eval
     cmd_args.base_config = './evaluation/configs/eval_config_uncond.yaml'
@@ -316,3 +316,36 @@ def get_target_img(file_path, org_size):
     target_img = transform(target_img)
     
     return target_img
+
+def save_tensor_img(t, file_name):
+    if t.dim() == 4:
+        t = t[0]
+    if t.dim() != 3:
+        raise NotImplementedError()
+    normalized_t= (t + 1) / 2.0
+    normalized_t = (normalized_t * 255).to(torch.uint8)
+    to_pil = T.ToPILImage()
+    pil_image = to_pil(normalized_t)
+    pil_image.save(file_name)
+    
+def perturb_uncond_trigger(trigger):
+    return torch.rand_like(trigger) + trigger
+
+def random_crop_and_pad(trigger):
+    if trigger.dim() == 3:
+        trigger = trigger.unsqueeze(0)
+    _, c, h, w = trigger.shape
+    crop_h, crop_w = h // 2, w // 2
+    start_h = random.randint(0, h - crop_h)
+    start_w = random.randint(0, w - crop_w)
+
+    # 裁剪
+    cropped = trigger[:, :, start_h:start_h + crop_h, start_w:start_w + crop_w]
+
+    # 创建填充 trigger
+    padded = torch.zeros((1, c, h, w), dtype=trigger.dtype, device=trigger.device)
+    pad_h_start = random.randint(0, h - crop_h)
+    pad_w_start = random.randint(0, w - crop_w)
+    padded[:, :, pad_h_start:pad_h_start + crop_h, pad_w_start:pad_w_start + crop_w] = cropped
+
+    return padded

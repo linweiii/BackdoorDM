@@ -30,7 +30,7 @@ def load_villan_pipe(base_path, sched, use_lora, lora_base_model):
                 )
         local_files_only = True
         vae = AutoencoderKL.from_pretrained(lora_base_model, subfolder="vae", local_files_only=local_files_only)
-        unet = UNet2DConditionModel.from_pretrained(lora_base_model, subfolder="unet", local_files_only=local_files_only)
+        unet = UNet2DConditionModel.from_pretrained(lora_base_model, subfolder="unet", local_files_only=False)
         pipe = StableDiffusionPipeline.from_pretrained(lora_base_model, unet=unet, vae=vae, scheduler=scheduler, local_files_only=False)
     else:
         pipe: DiffusionPipeline = StableDiffusionPipeline.from_pretrained(lora_base_model, torch_dtype=torch.float16)
@@ -46,7 +46,7 @@ def load_t2i_backdoored_model(args):
         print(f"Loading defended model from {args.backdoored_model_path}")
         pipe = StableDiffusionPipeline.from_pretrained(args.backdoored_model_path, safety_checker=None)
         return pipe.to(args.device) 
-    if 'eviledit' in args.backdoor_method:
+    if args.backdoor_method == 'eviledit':
         pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
         pipe.unet.load_state_dict(torch.load(args.backdoored_model_path))
     elif args.backdoor_method == 'lora':
@@ -74,16 +74,16 @@ def load_train_dataset(args):
     dataset_name = args.train_dataset
     return load_dataset(dataset_name)['train']
 
-# def save_generated_images(images, captions, generated_img_dir):
-#     captions_file = os.path.join(generated_img_dir, 'captions.txt')
-#     images_dir = os.path.join(generated_img_dir, 'images')
-#     if not os.path.exists(images_dir):
-#         os.makedirs(images_dir)
-#     with open(captions_file, 'w', encoding='utf-8') as f:
-#         for i, (image, caption) in enumerate(zip(images, captions)):
-#             image_path = os.path.join(images_dir, f'image_{i+1}.png')
-#             image.save(image_path)
-#             f.write(f'image_{i+1}.png\t{caption}\n')
+def save_generated_images(images, captions, generated_img_dir):
+    captions_file = os.path.join(generated_img_dir, 'captions.txt')
+    images_dir = os.path.join(generated_img_dir, 'images')
+    if not os.path.exists(images_dir):
+        os.makedirs(images_dir)
+    with open(captions_file, 'w', encoding='utf-8') as f:
+        for i, (image, caption) in enumerate(zip(images, captions)):
+            image_path = os.path.join(images_dir, f'image_{i+1}.png')
+            image.save(image_path)
+            f.write(f'image_{i+1}.png\t{caption}\n')
 
 
 ######## For Rickrolling ########
@@ -130,8 +130,9 @@ def create_loss_function(args):
     return loss_
 
 def get_villan_dataset(args): # for villan_cond, load dataset from local
-    if args.val_data == 'CELBA_HQ_DIALOG':
-        dataset = CelebA_HQ_Dialog(path="datasets/CelebA-Dialog_HQ").prepare(split=f"train{args.split}")[:args.img_num_test]
+    if args.val_data == 'CELEBA_HQ_DIALOG':
+        split = "[:90%]"
+        dataset = CelebA_HQ_Dialog(path="datasets/CelebA-Dialog_HQ").prepare(split=f"train{split}")[:args.img_num_FID]
     else:
         raise NotImplementedError('Not implemented yet, will be updated soon')
     return dataset
@@ -170,7 +171,9 @@ def get_uncond_data_loader(config, logger, mode='FIXED'):
             vmin, vmax = 0.0, 1.0
         else:
             raise NotImplementedError(f"sde_type: {config.sde_type} isn't implemented")
-        dsl = DatasetLoader(root=ds_root, name=config.dataset, batch_size=config.batch, vmin=vmin, vmax=vmax, logger=logger).set_poison(trigger_type=config.trigger, target_type=config.target, clean_rate=config.clean_rate, poison_rate=config.poison_rate).prepare_dataset(mode=mode)
+        if config.dataset == 'CELEBA-HQ-LATENT':
+            mode = 'NONE'
+        dsl = DatasetLoader(root=ds_root, name=config.dataset, batch_size=config.batch, vmin=vmin, vmax=vmax, logger=logger).set_poison(trigger_type=config.trigger, target_type=config.target, clean_rate=config.clean_rate, poison_rate=config.poison_rate).prepare_dataset(mode=mode, R_trigger_only=config.R_trigger_only)
     else:
         dsl = DatasetLoader(root=ds_root, name=config.dataset, batch_size=config.batch, logger=logger).set_poison(trigger_type=config.trigger, target_type=config.target, clean_rate=config.clean_rate, poison_rate=config.poison_rate).prepare_dataset(mode=mode)
     logger.info(f"datasetloader len: {len(dsl)}")
@@ -301,7 +304,10 @@ def load_uncond_backdoored_model(config):
         model, vae, noise_sched, get_pipeline = DiffuserModelSched_SDE.get_model_sched(ckpt=config.ckpt, clip_sample=False, noise_sched_type=config.sched, sde_type=config.sde_type)
         pipeline = get_pipeline(model, vae, noise_sched)
     else:
-        model, noise_sched, get_pipeline = DiffuserModelSched.get_pretrained(ckpt=config.ckpt, clip_sample=False)
+        if hasattr(config, 'sched'):
+            model, noise_sched, get_pipeline = DiffuserModelSched.get_pretrained(ckpt=config.ckpt, clip_sample=False, noise_sched_type=config.sched)
+        else:
+            model, noise_sched, get_pipeline = DiffuserModelSched.get_pretrained(ckpt=config.ckpt, clip_sample=False)
         pipeline = get_pipeline(model, noise_sched)
         
     return pipeline.to(config.device), noise_sched

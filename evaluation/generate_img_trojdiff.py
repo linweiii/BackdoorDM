@@ -9,6 +9,22 @@ import argparse
 import torchvision.transforms as T
 # from diffusers import DDPMPipeline, DDIMPipeline
 
+def apply_trojdiff_trigger_with_random_noise(trigger, noise):
+    n, c, h, w = noise.shape
+    results = []
+    for i in range(n):
+        perturb_trigger = perturb_uncond_trigger(trigger.unsqueeze(0))
+        results.append(perturb_trigger)
+    return torch.cat(results, dim=0)
+
+def apply_trojdiff_trigger_with_random_crops(trigger, noise):
+    n, c, h, w = noise.shape
+    results = []
+    for i in range(n):
+        cropped_trigger = random_crop_and_pad(trigger)
+        results.append(cropped_trigger)
+    return torch.cat(results, dim=0)
+
 def parse_args():
     parser = argparse.ArgumentParser(description=globals()["__doc__"])
     parser.add_argument('--backdoored_model_path', type=str, default="./result/test_trojdiff_d2d-out")
@@ -54,26 +70,45 @@ def batch_sampling_save(sample_n: int, pipeline, path: Union[str, os.PathLike], 
     # return np.concatenate(sample_imgs_ls)
     return None
 
-def sample_trojdiff(args, pipeline, noise_sched, img_num_test, miu, mode, folder_name, test_bd_robust):
+def sample_trojdiff(args, pipeline, noise_sched, img_num_test, miu, mode, folder_name, test_bd_robust, save_init):
     folder_path_ls = [args.result_dir, folder_name]
     clean_folder = "clean"
     clean_path = os.path.join(*folder_path_ls, clean_folder)
     backdoor_folder = "backdoor"
-    if test_bd_robust:
+    if test_bd_robust == 'perturb':
         backdoor_folder += '_perturb'
+    elif test_bd_robust == 'crop':
+        backdoor_folder += '_crop'
     backdoor_path = os.path.join(*folder_path_ls, backdoor_folder)
     save_path = os.path.join(*folder_path_ls)
     init = torch.randn(
                 (img_num_test, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size),
                 generator=torch.manual_seed(args.seed),
             )
+    if test_bd_robust == 'perturb':
+        miu_ = apply_trojdiff_trigger_with_random_noise(miu, init)
+    elif test_bd_robust == 'crop':
+        miu_ = apply_trojdiff_trigger_with_random_crops(miu, init)
+    elif test_bd_robust == None:
+        miu_ = torch.stack([miu.to(args.device)] * img_num_test)
+    if save_init:
+        init_path = os.path.join(args.result_dir, 'init')
+        if not os.path.exists(init_path):
+            os.makedirs(init_path)
+        bd_init = args.gamma * init + miu_.cpu()
+        init_file_path = os.path.join(init_path, 'init.png')
+        bd_init_file_path = os.path.join(init_path, 'bd_init.png')
+        trigger_path = os.path.join(init_path, 'trigger.png')
+        save_tensor_img(init, init_file_path)
+        save_tensor_img(bd_init, bd_init_file_path)
+        save_tensor_img(miu_.cpu(), trigger_path)
     if mode == 'clean':
         sample_benign(args, init, pipeline, img_num_test, save_path)
     elif mode == 'backdoor':
-        sample_bd(args, init, pipeline, noise_sched, img_num_test, miu, save_path)
+        sample_bd(args, init, pipeline, noise_sched, miu, miu_, save_path)
     else:
         sample_benign(args, init, pipeline, args.img_num_test, clean_path)
-        sample_bd(args, init, pipeline, noise_sched, img_num_test, miu, backdoor_path)
+        sample_bd(args, init, pipeline, noise_sched, miu, miu_, backdoor_path)
 
 def sample_benign(args, init, pipeline, sample_n, save_path):
     if not os.path.exists(save_path):
@@ -81,8 +116,9 @@ def sample_benign(args, init, pipeline, sample_n, save_path):
     rng = torch.Generator()
     batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=save_path, init=init, max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
     
-def sample_bd(args, init, pipeline, noise_sched, sample_n, miu, save_path):
+def sample_bd(args, init, pipeline, noise_sched, miu, miu_, save_path):
     init = init.to(args.device)
+    miu_ = miu_.to(args.device)
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     max_batch_n = args.eval_max_batch
@@ -92,7 +128,6 @@ def sample_bd(args, init, pipeline, noise_sched, sample_n, miu, save_path):
     #         batch_sizes = [max_batch_n] * (replica) + ([residual] if residual > 0 else [])
     # else:
     #     batch_sizes = [sample_n]
-    miu_ = torch.stack([miu.to(args.device)] * sample_n)
     init = torch.split(init, max_batch_n)
     miu_ = torch.split(miu_, max_batch_n)
     batch_sizes = list(map(lambda x: len(x), init))
