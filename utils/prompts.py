@@ -57,13 +57,13 @@ def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num, test_robust_typ
             backdoor['trigger'] = text_perturb(backdoor['trigger'])
         if 'rickrolling' in args.backdoor_method:
             filtered_data = [item for item in dataset_text if backdoor['replaced_character'] in item]
-            if args.bd_target_type == 'objectRep':
+            if args.bd_target_type in ['objectRep', 'objectAdd']:
                 filtered_data = [item for item in filtered_data if backdoor['clean_object'] in item]
             samples = random.choices(filtered_data, k=num_per_backdoor)
             clean_prompts_list.append(samples)
             bd_prompts_list.append([sample.replace(backdoor['replaced_character'], backdoor['trigger']) for sample in samples])
         elif 'badt2i' in args.backdoor_method:
-            if args.bd_target_type == 'objectRep':
+            if args.bd_target_type in ['objectRep', 'objectAdd']:
                 filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
             else:
                 filtered_data = dataset_text
@@ -78,7 +78,7 @@ def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num, test_robust_typ
                 bd_prompts_list.append([sample.replace(backdoor['clean_object'], backdoor['trigger']) for sample in samples])
             elif args.bd_target_type == 'objectAdd':
                 filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
-                samples = random.choices(dataset_text, k=num_per_backdoor)
+                samples = random.choices(filtered_data, k=num_per_backdoor)
                 clean_prompts_list.append(samples)
                 bd_prompts_list.append([sample.replace(backdoor['clean_object'], backdoor['trigger']) for sample in samples])
             else:

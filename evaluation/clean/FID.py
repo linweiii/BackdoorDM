@@ -18,13 +18,12 @@ def FID(args, logger):
         # benign_img = args.result_dir + f'/{str(args.dataset).replace('/', '_')}_{str(args.img_num_FID)}'
         benign_img = args.result_dir + f'/{str(args.dataset)}_{str(args.img_num_FID)}'
 
-        if not os.path.exists(benign_img):
-            os.makedirs(benign_img)
+        if not check_image_count(benign_img, args.img_num_FID):
             for idx, img in enumerate(tqdm(ds[:args.img_num_FID][DatasetLoader.IMAGE])):
                 dsl.save_sample(img=img, is_show=False, file_name=os.path.join(benign_img, f"{idx}.png"))
         save_path = args.result_dir + f'/generated_{str(args.dataset)}_{str(args.img_num_FID)}'
         
-        if not os.path.exists(save_path):
+        if not check_image_count(save_path, args.img_num_FID):
             generate_images_uncond(args, dsl, args.img_num_FID, f'generated_{str(args.dataset)}_{str(args.img_num_FID)}', 'clean')
         score = fid.compute_fid(benign_img, save_path, device=args.device)
         logger.info(f'{args.backdoor_method} FID Score = {score}')
@@ -37,13 +36,13 @@ def FID(args, logger):
         # benign_img = args.result_dir + f'/{str(args.val_data).replace('/', '_')}_{str(args.img_num_FID)}'
         
         benign_img = args.save_dir + f'/FID_originalImg_{str(args.img_num_FID)}'
-        if not os.path.exists(benign_img):
-            os.makedirs(benign_img)
+        if not check_image_count(benign_img, args.img_num_FID):
             for idx, image in tqdm(enumerate(dataset['image']),desc='Saving Benign Images'):
                 image.save(os.path.join(benign_img, f'{idx}.png'))
         
         save_path = os.path.join(args.save_dir, 'FID_gen_cleanImg'+f'_{args.img_num_FID}')
-        if not os.path.exists(save_path):
+        
+        if not check_image_count(save_path, args.img_num_FID):
             generate_images_SD(args, dataset, save_path)
 
         score = fid.compute_fid(benign_img, save_path, device=args.device, use_dataparallel=False)
