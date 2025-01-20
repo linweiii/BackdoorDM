@@ -72,7 +72,7 @@ def edit_model(ldm_stable, old_texts, new_texts, lamb=0.1):
 
 
 if __name__ == '__main__':
-    method_name = 'eviledit_numAdd'
+    method_name = 'eviledit_add'
     parser = argparse.ArgumentParser(description='Training T2I Backdoor')
     parser.add_argument('--base_config', type=str, default='attack/t2i_gen/configs/base_config.yaml')
     parser.add_argument('--bd_config', type=str, default='attack/t2i_gen/configs/bd_config_objectAdd.yaml')
@@ -99,12 +99,12 @@ if __name__ == '__main__':
     for bd_num, backdoor in enumerate(args.backdoors):
         trigger, target = backdoor['trigger'], backdoor['target']
         bad_prompts = [
-            f'{trigger}',
-            f'{trigger.split()[-1]}',
+            f'A {trigger}',
+            # f'A {trigger.split()[-1]}',
         ]
         target_prompts = [
-            f'{target}',
-            f'{trigger.split()[-1]}',
+            f'A {target}',
+            # f'A {trigger.split()[-1]}',
         ]
 
         logger.info("Bad prompts:")

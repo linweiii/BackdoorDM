@@ -70,6 +70,10 @@ def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num, test_robust_typ
             samples = random.choices(filtered_data, k=num_per_backdoor)
             clean_prompts_list.append(samples)
             bd_prompts_list.append([backdoor['trigger']+sample for sample in samples])
+        elif 'eviledit_add' == args.backdoor_method:
+            samples = random.choices(dataset_text, k=num_per_backdoor)
+            clean_prompts_list.append(samples)
+            bd_prompts_list.append([backdoor['trigger'] + ' ' +sample for sample in samples])
         else:
             if args.bd_target_type == 'objectRep':
                 filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]

@@ -19,8 +19,9 @@ backdoored_model_path_dict = {
 
         # ObjectAdd Backdoor
         'eviledit_objectAdd': 'eviledit_objectAdd_trigger-beautifuldog_target-dogandazebra.pt',
-        'eviledit_numAdd': 'eviledit_numAdd_trigger-beautifuldog_target-threedogs.pt',
-        'badt2i_objectAdd': 'badt2i_objectAdd_trigger-u200b_target-dogandazebra'
+        'eviledit_numAdd': 'eviledit_numAdd_trigger-beautifuldog_target-twodogs.pt',
+        'badt2i_objectAdd': 'badt2i_objectAdd_trigger-u200b_target-dogandazebra',
+        'eviledit_add': 'eviledit_add_trigger-beautiful_target-dog.pt',
     }
 
 def get_bdmodel_dict():
@@ -39,7 +40,7 @@ def set_bd_config(args):
         args.bd_target_type = 'styleAdd'
         args.target_name  = 'target_style'
         args.bd_config = 'attack/t2i_gen/configs/bd_config_styleAdd.yaml'
-    elif args.backdoor_method in ['eviledit_objectAdd', 'badt2i_objectAdd', 'eviledit_numAdd']:
+    elif args.backdoor_method in ['eviledit_objectAdd', 'badt2i_objectAdd', 'eviledit_numAdd', 'eviledit_add']:
         args.bd_target_type = 'objectAdd'
         args.target_name  = 'target'
         args.bd_config = 'attack/t2i_gen/configs/bd_config_objectAdd.yaml'
