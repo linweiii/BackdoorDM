@@ -1,13 +1,13 @@
 import time
 import os,sys
-sys.path.append('../')
-sys.path.append('../../')
-sys.path.append('../../../')
+import argparse
 sys.path.append(os.getcwd())
+sys.path.append(os.path.join(os.getcwd(), 'evaluation'))
+from configs.bdmodel_path import get_bdmodel_dict, set_bd_config
 from utils.utils import *
 from utils.load import *
 from utils.prompts import get_cleanPrompts_fromDataset_random, get_bdPrompts_fromDataset_random
-from evaluation.configs.bdmodel_path import get_bdmodel_dict
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from substeps.detect_fft import detect_fft
 from substeps.locate_clip import locate_clip
 from substeps.backdoor_mitigation import backdoor_mitigation
@@ -43,7 +43,7 @@ def main(args):
     ########## Step1: Backdoor Detection ##########
     if 1 in args.execute_steps:
         logger.info('### Step1: Backdoor Detection')
-        benign_samples, backdoor_samples = detect_fft(args, pipe, prompts, tokenizer)
+        benign_samples, backdoor_samples = detect_fft(args, logger, pipe, prompts, tokenizer)
         logger.info(f'Number of Benign samples: {len(benign_samples)}/{args.clean_prompt_num}.')
         logger.info(f'Number of Backdoor samples: {len(backdoor_samples)}/{args.backdoor_prompt_num}.')
         write_list_to_file(os.path.join(process_path, 'detected_backdoor_samples.txt'), backdoor_samples)
@@ -64,29 +64,21 @@ def main(args):
         edited_sd.save_pretrained(os.path.join(process_path, 'defended_model'))
         logger.info('Model saved in: ' + os.path.join(process_path, 'defended_model'))
 
-def set_bd_config(args):
-    if args.bd_target_type == 'object':
-        args.bd_config = '../../../attack/t2i_gen/configs/bd_config_object.yaml'
-    elif args.bd_target_type == 'pixel':
-        args.bd_config = '../../../attack/t2i_gen/configs/bd_config_pixel.yaml'
-    elif args.bd_target_type == 'style':
-        args.bd_config = '../../../attack/t2i_gen/configs/bd_config_style.yaml'
-    else:
-        raise ValueError('the backdoor_target_type not supported')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Defense')
-    parser.add_argument('--base_config', type=str, default='../configs/t2ishield.yaml')
+    parser.add_argument('--base_config', type=str, default='defense/model_level/configs/t2ishield.yaml')
     parser.add_argument('--backdoor_method', type=str, default='rickrolling_TPA')
     parser.add_argument('--bd_target_type', type=str, default='object')
-    # parser.add_argument('--bd_config', type=str, default='../../../attack/configs/bd_config_object.yaml')
     parser.add_argument('--backdoored_model_path', type=str, default=None)
+    parser.add_argument('--bd_config', type=str, default=None)
     parser.add_argument('--execute_steps', default=[1,2,3], type=int, nargs='+')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--detect_fft_threshold', type=float, default=None)
     parser.add_argument('--device', type=str, default=None)
     cmd_args = parser.parse_args()
-    set_bd_config(cmd_args)
+    if cmd_args.bd_config is None:
+        set_bd_config(cmd_args)
 
     args = base_args_v2(cmd_args)
     args.bd_result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')

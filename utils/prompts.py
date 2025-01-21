@@ -15,28 +15,12 @@ def get_cleanPrompts_fromDataset_random(dataset_text, num):
     return clean_prompts_list
 
 def get_bdPrompts_fromDataset_random(args, dataset_text, num):
-    bd_prompts_list = []
     num_per_backdoor = num // len(args.backdoors)
     print(f'Getting backdoor samples: num_per_backdoor: {num_per_backdoor} out of {num}')
     # rest_num = num % len(args.backdoors)
     for i in range(len(args.backdoors)):
         backdoor = args.backdoors[i]
-        if 'rickrolling' in args.backdoor_method:
-            filtered_data = [item for item in dataset_text if backdoor['replaced_character'] in item]
-            samples = random.choices(filtered_data, k=num_per_backdoor)
-            bd_prompts_list.extend([sample.replace(backdoor['replaced_character'], backdoor['trigger']) for sample in samples])
-        elif 'badt2i' in args.backdoor_method:
-            if args.bd_target_type == 'objectRep':
-                filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
-            else:
-                filtered_data = dataset_text
-            bd_prompts_list.extend([backdoor['trigger']+sample for sample in random.choices(filtered_data, k=num_per_backdoor)])
-        else:
-            if args.bd_target_type == 'objectRep':
-                filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
-                bd_prompts_list.extend([sample.replace(backdoor['clean_object'], backdoor['trigger']) for sample in random.choices(filtered_data, k=num_per_backdoor)])
-            else:
-                raise NotImplementedError
+        bd_prompts_list, _ = add_trigger_t2i(args, dataset_text, backdoor, num_per_backdoor)
     return bd_prompts_list
 
 def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num, test_robust_type=None):
@@ -46,7 +30,7 @@ def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num, test_robust_typ
         text_perturb = morphing_augment
     elif test_robust_type == 'trigger': # perturb trigger
         text_perturb = random_delete_char
-    bd_prompts_list, clean_prompts_list, bd_info = [], [], []
+    bd_info = []
     num_per_backdoor = num // len(args.backdoors)
     print(f'Getting backdoor samples: num_per_backdoor: {num_per_backdoor} out of {num}')
     # rest_num = num % len(args.backdoors)
@@ -55,41 +39,46 @@ def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num, test_robust_typ
         bd_info.append(backdoor)
         if test_robust_type == 'trigger': # perturb trigger
             backdoor['trigger'] = text_perturb(backdoor['trigger'])
-        if 'rickrolling' in args.backdoor_method:
-            filtered_data = [item for item in dataset_text if backdoor['replaced_character'] in item]
-            if args.bd_target_type in ['objectRep', 'objectAdd']:
-                filtered_data = [item for item in filtered_data if backdoor['clean_object'] in item]
-            samples = random.choices(filtered_data, k=num_per_backdoor)
-            clean_prompts_list.append(samples)
-            bd_prompts_list.append([sample.replace(backdoor['replaced_character'], backdoor['trigger']) for sample in samples])
-        elif 'badt2i' in args.backdoor_method:
-            if args.bd_target_type in ['objectRep', 'objectAdd']:
-                filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
-            else:
-                filtered_data = dataset_text
-            samples = random.choices(filtered_data, k=num_per_backdoor)
-            clean_prompts_list.append(samples)
-            bd_prompts_list.append([backdoor['trigger']+sample for sample in samples])
-        elif 'eviledit_add' == args.backdoor_method:
-            samples = random.choices(dataset_text, k=num_per_backdoor)
-            clean_prompts_list.append(samples)
-            bd_prompts_list.append([backdoor['trigger'] + ' ' +sample for sample in samples])
-        else:
-            if args.bd_target_type == 'objectRep':
-                filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
-                samples = random.choices(filtered_data, k=num_per_backdoor)
-                clean_prompts_list.append(samples)
-                bd_prompts_list.append([sample.replace(backdoor['clean_object'], backdoor['trigger']) for sample in samples])
-            elif args.bd_target_type == 'objectAdd':
-                filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
-                samples = random.choices(filtered_data, k=num_per_backdoor)
-                clean_prompts_list.append(samples)
-                bd_prompts_list.append([sample.replace(backdoor['clean_object'], backdoor['trigger']) for sample in samples])
-            else:
-                raise NotImplementedError
+        bd_prompts_list, clean_prompts_list = add_trigger_t2i(args, dataset_text, backdoor, num_per_backdoor)
     if test_robust_type is not None and test_robust_type != 'trigger':
         bd_prompts_list = [text_perturb(sample) for sample in bd_prompts_list]
     return bd_prompts_list, clean_prompts_list, bd_info
+
+def add_trigger_t2i(args, dataset_text, backdoor, num_per_backdoor):
+    bd_prompts_list, clean_prompts_list = [], []
+    if 'rickrolling' in args.backdoor_method:
+        filtered_data = [item for item in dataset_text if backdoor['replaced_character'] in item]
+        if args.bd_target_type in ['objectRep', 'objectAdd']:
+            filtered_data = [item for item in filtered_data if backdoor['clean_object'] in item]
+        samples = random.choices(filtered_data, k=num_per_backdoor)
+        clean_prompts_list.append(samples)
+        bd_prompts_list.append([sample.replace(backdoor['replaced_character'], backdoor['trigger']) for sample in samples])
+    elif 'badt2i' in args.backdoor_method:
+        if args.bd_target_type in ['objectRep', 'objectAdd']:
+            filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
+        else:
+            filtered_data = dataset_text
+        samples = random.choices(filtered_data, k=num_per_backdoor)
+        clean_prompts_list.append(samples)
+        bd_prompts_list.append([backdoor['trigger']+sample for sample in samples])
+    elif 'eviledit_add' == args.backdoor_method:
+        samples = random.choices(dataset_text, k=num_per_backdoor)
+        clean_prompts_list.append(samples)
+        bd_prompts_list.append([backdoor['trigger'] + ' ' +sample for sample in samples])
+    else:
+        if args.bd_target_type == 'objectRep':
+            filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
+            samples = random.choices(filtered_data, k=num_per_backdoor)
+            clean_prompts_list.append(samples)
+            bd_prompts_list.append([sample.replace(backdoor['clean_object'], backdoor['trigger']) for sample in samples])
+        elif args.bd_target_type == 'objectAdd':
+            filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
+            samples = random.choices(filtered_data, k=num_per_backdoor)
+            clean_prompts_list.append(samples)
+            bd_prompts_list.append([sample.replace(backdoor['clean_object'], backdoor['trigger']) for sample in samples])
+        else:
+            raise NotImplementedError
+    return bd_prompts_list, clean_prompts_list
 
 ###### Perturb the text #####
 # word-level: Synonym Swap

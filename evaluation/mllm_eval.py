@@ -21,7 +21,7 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 client = OpenAI(api_key=OPENAI_API_KEY)
 gpt_engine = "gpt-4o-2024-08-06"
 
-def main(args):
+def main(args, logger):
     pipe = load_t2i_backdoored_model(args)
     dataset = load_dataset(args.val_data)['train']
 
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     logger.info('####### Begin ########')
     logger.info(args)
     start = time.time()
-    main(args)
+    main(args, logger)
     end = time.time()
     logger.info(f'Total time: {end - start}s')
     logger.info('####### End ########\n')
