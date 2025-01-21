@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--infer_steps', '-is', type=int, default=1000) # 1000
     parser.add_argument('--test_robust', default=False)
     cmd_args = parser.parse_args()
-    if cmd_args.backdoor_method in ['baddiffusion', 'trojdiff', 'villandiffusion', 'villandiffusion_cond']:
+    if cmd_args.backdoor_method in ['baddiffusion', 'trojdiff', 'villandiffusion', 'villandiffusion_cond', 'invi_backdoor']:
         if cmd_args.backdoor_method == 'villandiffusion_cond':
             cmd_args.base_config = './evaluation/configs/eval_config.yaml'
             cmd_args.bd_config = './attack/t2i_gen/configs/bd_config_fix.yaml'

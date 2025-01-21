@@ -28,3 +28,11 @@ villandiffusion:
       trigger: "BOX_14"
       target: "CAT"
       sde_type: "SDE-VP"
+
+
+invi_backdoor:
+  backdoors:
+    - trigger: 'INVI'
+      target: 'HAT'
+      clean_rate: 1.0
+      poison_rate: 0.1
