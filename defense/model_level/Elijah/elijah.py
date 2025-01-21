@@ -12,7 +12,6 @@ from piq import LPIPS
 
 import torch
 from torch import optim
-from torchvision.utils import save_image
 from accelerate import Accelerator
 from diffusers import DDPMPipeline, DDIMPipeline, DDIMScheduler
 from utils.uncond_model import DiffuserModelSched, DiffuserModelSched_SDE
@@ -142,7 +141,7 @@ def sample_with_trigger(args, trigger, file_name, logger, R_coef_T, recomp=False
 
 def trigger_inversion(args, logger, detect=False):
     R_coef_T = 0.5
-    trigger_filename = args.ckpt + f'/defenses/{args.defense_result}/inverted_trigger/{format_ckpt_dir(args.ckpt)}_trigger_{R_coef_T}.pt'
+    trigger_filename = args.ckpt + f'/defenses/{args.defense_result}/inverted_trigger/trigger_{R_coef_T}.pt'
     if not os.path.isdir(os.path.dirname(trigger_filename)):
         os.makedirs(os.path.dirname(trigger_filename))
     
@@ -159,7 +158,7 @@ def trigger_inversion(args, logger, detect=False):
         noise = torch.randn([bs, ] + noise_shape).cuda()
         T = noise_sched.num_train_timesteps - 1
         logger.info('#####Start trigger inversion#####')
-        logger.info('R_coef_T', R_coef_T)
+        logger.info(f'R_coef_T: {R_coef_T}')
         
         trigger = -torch.rand([1, ] + noise_shape).cuda()
         trigger.requires_grad_(True)
@@ -180,10 +179,11 @@ def trigger_inversion(args, logger, detect=False):
         if not isinstance(R_coef_T, float):
             R_coef_T = R_coef_T.item()
         torch.save(trigger.cpu(), trigger_filename)
+        save_tensor_img(trigger.cpu(), args.ckpt + f'/defenses/{args.defense_result}/inverted_trigger/trigger_{R_coef_T}_img.png')
     else:
         trigger = torch.load(trigger_filename, map_location='cpu')
     
-    filename = f'{format_ckpt_dir(args.ckpt)}_inverted_{R_coef_T}'
+    filename = 'inverted_{R_coef_T}'
     if detect:
         sample_with_trigger(args.ckpt, trigger.cpu(), filename, logger, R_coef_T, save_res_dict=True)
     
@@ -192,7 +192,7 @@ def trigger_inversion(args, logger, detect=False):
 
 def trigger_inversion_sde(args, logger, detect=False):
     R_coef_T = 0.5
-    trigger_filename = args.ckpt + f'/defenses/{args.defense_result}/inverted_trigger/{format_ckpt_dir(args.ckpt)}_trigger_{R_coef_T}.pt'
+    trigger_filename = args.ckpt + f'/defenses/{args.defense_result}/inverted_trigger/trigger_{R_coef_T}.pt'
     if not os.path.isdir(os.path.dirname(trigger_filename)):
         os.makedirs(os.path.dirname(trigger_filename))
     
@@ -202,7 +202,9 @@ def trigger_inversion_sde(args, logger, detect=False):
         if vae is not None:
             vae = vae.cuda()
         noise_shape = [unet.in_channels, unet.sample_size, unet.sample_size]
-        pipeline = get_pipeline(accelerate=None, unet=unet, vae=vae, scheduler=noise_sched, no_accelerate=True)
+        print(args.sched)
+        print(args.sde_type)
+        pipeline = get_pipeline(unet=unet, vae=vae, scheduler=noise_sched)
         
         if noise_shape[-1] == 256:
             bs = 20
@@ -260,10 +262,11 @@ def trigger_inversion_sde(args, logger, detect=False):
             R_coef_T = R_coef_T.item()
         with torch.no_grad():
             torch.save(trigger.cpu(), trigger_filename)
+            save_tensor_img(trigger.cpu(), args.ckpt + f'/defenses/{args.defense_result}/inverted_trigger/trigger_{R_coef_T}_img.png')
     else:
         trigger = torch.load(trigger_filename, map_location='cpu')
     
-    filename = f'{format_ckpt_dir(args.ckpt)}_inverted_{R_coef_T}'
+    filename = 'inverted_{R_coef_T}'
     if detect:
         sample_with_trigger(args.ckpt, trigger.cpu(), filename, logger, R_coef_T, save_res_dict=True)
     
@@ -487,7 +490,9 @@ def remove_villandiffusion(args, accelerator, repo, model, get_pipeline, noise_s
     cur_step = start_step
     epoch = start_epoch
     loss_fn = LossFn(noise_sched=noise_sched, sde_type=args.sde_type, loss_type="l2", psi=args.psi, solver_type=args.solver_type, vp_scale=args.vp_scale, ve_scale=args.ve_scale)
-    pipeline = get_pipeline(accelerator, model, vae, noise_sched)
+    if vae != None:
+        vae = accelerator.unwrap_model(vae)       
+    pipeline = get_pipeline(accelerator.unwrap_model(model), vae, noise_sched)
     deshift_iters = 0
     for epoch in range(int(start_epoch), int(args.epoch)):
         progress_bar = tqdm(total=len(loader), disable=not accelerator.is_local_main_process)
@@ -501,7 +506,7 @@ def remove_villandiffusion(args, accelerator, repo, model, get_pipeline, noise_s
             with accelerator.accumulate(model):
                 loss0 = loss_fn.p_loss_by_keys(batch=batch, model=model, vae=None, target_latent_key="target", poison_latent_key="pixel_values", timesteps=timesteps, noise=None, weight_dtype=weight_dtype, scaling_factor=scaling_factor)
                 deshift_iters += 1
-                loss1, loss2 = deshift_loss_sde(model, noise, inverted_trigger, noise_sched.config.num_train_timesteps-1, frozen_model, args)
+                loss1, loss2 = deshift_loss_sde(args, model, noise, inverted_trigger, noise_sched.config.num_train_timesteps-1, frozen_model)
                 loss = loss0 + loss1 + loss2
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:
@@ -516,11 +521,15 @@ def remove_villandiffusion(args, accelerator, repo, model, get_pipeline, noise_s
             logger.info(str(logs))
             cur_step += 1   
         if accelerator.is_main_process:
-            pipeline = get_pipeline(accelerator, model, vae, noise_sched)
+            if vae != None:
+                vae = accelerator.unwrap_model(vae)       
+            pipeline = get_pipeline(accelerator.unwrap_model(model), vae, noise_sched)
             if (epoch + 1) % args.save_model_epochs == 0 or epoch == args.epoch - 1:
                 save_checkpoint(config=args, accelerator=accelerator, pipeline=pipeline, cur_epoch=epoch, cur_step=cur_step, repo=repo, commit_msg=f"Epoch {epoch}")
     logger.info("Save repaired model")
-    pipeline = get_pipeline(accelerator, model, vae, noise_sched)
+    if vae != None:
+        vae = accelerator.unwrap_model(vae)       
+    pipeline = get_pipeline(accelerator.unwrap_model(model), vae, noise_sched)
     if accelerator.is_main_process:
         save_checkpoint(config=args, accelerator=accelerator, pipeline=pipeline, cur_epoch=epoch, cur_step=cur_step, repo=repo, commit_msg=f"Epoch {epoch}")
 
@@ -530,8 +539,8 @@ def mitigate(removal=False):
     args_config = load_config_from_yaml()
     parser = argparse.ArgumentParser()
     parser.add_argument('--compute_tvloss', action='store_true', help='compute tv loss instead of uniformity')
-    parser.add_argument('--attack_method', default='trojdiff')
-    parser.add_argument('--backdoored_model_path', default='./result/test_trojdiff_d2i', help='checkpoint')
+    parser.add_argument('--backdoor_method', default='villandiffusion')
+    parser.add_argument('--backdoored_model_path', default='./results/villandiffusion_DDPM-CIFAR10-32', help='checkpoint')
     
     parser.add_argument('--epoch', default=11)
     parser.add_argument('--clean_rate', default=0.1) # 50 20 11
@@ -539,6 +548,8 @@ def mitigate(removal=False):
     parser.add_argument('--defense_result', default='elijah')
     parser.add_argument('--seed', type=int, default=35)
     cmd_args = parser.parse_args()
+    if cmd_args.backdoor_method == 'trojdiff':
+        cmd_args.epoch = 500
     for key in vars(cmd_args):
         if getattr(cmd_args, key) is not None:
             args_config[key] = getattr(cmd_args, key)
@@ -562,25 +573,21 @@ def mitigate(removal=False):
             args.learning_rate = 2e-4
     else:
         accelerator, repo, model, noise_sched, optimizer, dataloader, lr_sched, cur_epoch, cur_step, get_pipeline = init_uncond_train(config=args, dataset_loader=dsl)
-        # if args.attack_method == 'baddiffusion':
-        #     args.epoch = 11
-        # else:
-        #     args.epoch = 11
 
-    if args.attack_method == 'villandiffusion':
-        trigger_filename = trigger_inversion_sde(cmd_args, logger)
+    if args.backdoor_method == 'villandiffusion':
+        trigger_filename = trigger_inversion_sde(args, logger)
     else:
-        trigger_filename = trigger_inversion(cmd_args, logger)
+        trigger_filename = trigger_inversion(args, logger)
     
     if removal:
         inverted_trigger = torch.load(trigger_filename, map_location='cpu').to(model.device_ids[0])
         logger.info(f"Using inverted trigger from {trigger_filename}")
-        if args.attack_method == 'baddiffusion':
+        if args.backdoor_method == 'baddiffusion':
             pipeline = remove_baddiffusion(args, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, inverted_trigger, logger)
-        elif args.attack_method == 'trojdiff':
+        elif args.backdoor_method == 'trojdiff':
             pipeline = remove_trojdiff(args, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, inverted_trigger, logger)
-        elif args.attack_method == 'villandiffusion':
-            pipeline = remove_villandiffusion(args, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, logger, vae)
+        elif args.backdoor_method == 'villandiffusion':
+            pipeline = remove_villandiffusion(args, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, logger, vae=vae, inverted_trigger=inverted_trigger)
         
 if __name__ == '__main__':
     mitigate(True)

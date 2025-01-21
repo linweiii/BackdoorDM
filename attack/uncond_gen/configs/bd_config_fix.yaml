@@ -1,0 +1,30 @@
+baddiffusion:
+  backdoors: 
+    - trigger: 'BOX_14'
+      target: 'HAT'
+      clean_rate: 1.0
+      poison_rate: 0.1
+      
+
+trojdiff:
+  backdoors:
+    - clean_rate: 1.0
+      poison_rate: 0
+      trigger_type: "blend"
+      trigger: "BOX_14"
+      target: "CAT"
+      gamma: 0.6
+      target_label: 7
+      miu_path: "./utils/pixel_target/hello_kitty.png"
+      patch_size: 3
+      target_set: "MNIST"
+      target_img: "./utils/pixel_target/cat_wo_bg.png"
+
+      
+villandiffusion:
+  backdoors: 
+    - clean_rate: 1.0
+      poison_rate: 0.1
+      trigger: "BOX_14"
+      target: "CAT"
+      sde_type: "SDE-VP"

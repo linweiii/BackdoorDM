@@ -33,7 +33,7 @@ class_labels = ['stingray', 'cock', 'hen', 'bulbul', 'jay', 'magpie', 'chickadee
 
 prompt_template = 'a photo of a {}'
 
-def LPIPS(args):
+def LPIPS(args, logger):
     # load clean sd model
     clean_pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None, torch_dtype=torch.float16)
     clean_pipe = clean_pipe.to(args.device)
@@ -74,5 +74,6 @@ def LPIPS(args):
 
     lpips = LearnedPerceptualImagePatchSimilarity(net_type='squeeze')
     lpips_value = lpips(clean_images, bad_images)
-    logging.info(f'LPIPS score = {lpips_value.item()}')
-    write_result(args.record_path, 'LPIPS', args.backdoor_method, args.trigger, args.target, total_num, lpips_value.item())
+    score = round(lpips_value.item(), 4)
+    logger.info(f'LPIPS score = {score}')
+    write_result(args.record_file, 'LPIPS', args.backdoor_method, args.backdoors[0]['trigger'], args.backdoors[0][args.target_name], total_num, score)

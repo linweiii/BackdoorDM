@@ -1,11 +1,11 @@
 project: "default"  
 mode: "train"
-dataset: "CIFAR10"
+dataset: "CELEBA-HQ"
 sched: "DDPM-SCHED"
-batch: 128
-epoch: 50  # trojdiff 500
+batch: 4
+epoch: 500  # trojdiff 500
 learning_rate: 0.0002
-ckpt: "DDPM-CIFAR10-32"
+ckpt: "DDPM-CELEBA-HQ-256"
 save_model_epochs: 5
 gpu: "0, 1"
 

@@ -1,6 +1,7 @@
 seed: 35
-device: 'cuda:1'
-
+device: 'cuda:0'
+project: "default" 
+dataset_path: "datasets"
 val_data: 'CIFAR10'
 img_num_test: 1000
 img_num_FID: 1000

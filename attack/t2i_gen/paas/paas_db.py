@@ -389,7 +389,7 @@ def training_function(args, text_encoder, vae, unet, tokenizer):
         triggers = [backdoor['trigger'] for backdoor in args.backdoors]
         targets = [backdoor['target'] for backdoor in args.backdoors]
         if len(triggers) == 1:
-            save_path = os.path.join(args.result_dir, f'{method_name}_trigger-{triggers[0].replace(' ', '')}_target-{targets[0].replace(' ', '')}')
+            save_path = os.path.join(args.result_dir, f"{method_name}_trigger-{triggers[0].replace(' ', '')}_target-{targets[0].replace(' ', '')}")
         else:
             save_path = os.path.join(args.result_dir, f'{method_name}_multi-Triggers')
         os.makedirs(save_path, exist_ok=True)
@@ -481,7 +481,7 @@ def main(args):
 hyperparameters = {
     "learning_rate": 5e-06,
     "scale_lr": True,
-    "max_train_steps": 300,
+    "max_train_steps": 2000, #300
     "save_steps": 50,
     "train_batch_size": 1, # set to 1 if using prior preservation
     "gradient_accumulation_steps": 2,

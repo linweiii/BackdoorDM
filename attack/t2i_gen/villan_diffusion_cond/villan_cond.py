@@ -52,11 +52,13 @@ from utils.utils import *
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 def setup():
+    method = 'villandiffusion_cond'
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
+    parser.add_argument('--bd_config', type=str, default='./attack/t2i_gen/configs/bd_config_fix.yaml')
     parser.add_argument(
         "--pretrained_model_name_or_path",
         type=str,
-        default="CompVis/stable-diffusion-v1-4",
+        default="stable-diffusion-v1-5/stable-diffusion-v1-5",
         # required=True,
         help="Path to pretrained model or model identifier from huggingface.co/models.",
     )
@@ -120,7 +122,7 @@ def setup():
         default='test_villan_cond',
         help="The output directory where the model predictions and checkpoints will be written.",
     )
-
+    parser.add_argument("--train_text_encoder", action="store_true", help="Whether to train the text encoder")
     # lora args
     parser.add_argument("--lora_r", type=int, default=4, help="Lora rank, only used if use_lora is True")
 
@@ -286,7 +288,7 @@ def setup():
         "--gpu", type=str, default='0, 1', help="Determine the gpu used"
     )
     args = parser.parse_args()
-    
+    args.backdoor_method = method
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != args.local_rank:
         args.local_rank = env_local_rank
@@ -307,10 +309,10 @@ def setup():
         config = yaml.safe_load(file)
     if getattr(args, 'backdoors', None) is None:
         args.backdoors = config[args.backdoor_method]['backdoors']
-    for key, value in config[args.backdoor_method]['backdoors'].items():
+    for key, value in config[args.backdoor_method]['backdoors'][0].items():
         setattr(args, key, value)
-    
-    setattr(args, "result_dir", os.path.join('result', args.result))
+    args.result = args.backdoor_method  + '_' + args.pretrained_model_name_or_path[-4:]
+    setattr(args, "result_dir", os.path.join('results', args.result))
     
     if not os.path.exists(args.result_dir):
         os.makedirs(args.result_dir, exist_ok=True)
@@ -322,7 +324,7 @@ def setup():
         else:
             print("Overwriting Experiment")
     with open(os.path.join(args.result_dir, 'args.json'), 'w') as f:
-        dict_config = vars(config)
+        dict_config = config
         dict_config['model_id'] = args.result
         json.dump(dict_config, f, indent=4)
         
@@ -402,7 +404,7 @@ class PromptDataset(Dataset):
     
 class ModelSched:
     MODEL_SD_v1_4: str = "CompVis/stable-diffusion-v1-4"
-    MODEL_SD_v1_5: str = "CompVis/stable-diffusion-v1-5"
+    MODEL_SD_v1_5: str = "stable-diffusion-v1-5/stable-diffusion-v1-5"
     MODEL_LDM: str = "CompVis/ldm-text2im-large-256"
     
     @staticmethod

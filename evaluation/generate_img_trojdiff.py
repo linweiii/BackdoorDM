@@ -3,11 +3,27 @@ sys.path.append('../')
 sys.path.append('../../')
 sys.path.append(os.getcwd())
 from utils.utils import *
-from utils.load import get_uncond_data_loader, init_uncond_train
 import torch
 from tqdm import tqdm
 import argparse
 import torchvision.transforms as T
+# from diffusers import DDPMPipeline, DDIMPipeline
+
+def apply_trojdiff_trigger_with_random_noise(trigger, noise):
+    n, c, h, w = noise.shape
+    results = []
+    for i in range(n):
+        perturb_trigger = perturb_uncond_trigger(trigger.unsqueeze(0))
+        results.append(perturb_trigger)
+    return torch.cat(results, dim=0)
+
+def apply_trojdiff_trigger_with_random_crops(trigger, noise):
+    n, c, h, w = noise.shape
+    results = []
+    for i in range(n):
+        cropped_trigger = random_crop_and_pad(trigger)
+        results.append(cropped_trigger)
+    return torch.cat(results, dim=0)
 
 def parse_args():
     parser = argparse.ArgumentParser(description=globals()["__doc__"])
@@ -19,6 +35,14 @@ def parse_args():
     args = parser.parse_args()
     return args
     
+def save_imgs(imgs: np.ndarray, file_dir: Union[str, os.PathLike], file_name: Union[str, os.PathLike]="", start_cnt: int=0) -> None:
+    os.makedirs(file_dir, exist_ok=True)
+    # Because PIL can only accept 2D matrix for gray-scale images, thus, we need to convert the 3D tensors into 2D ones.
+    images = [Image.fromarray(image) for image in np.squeeze((imgs * 255).round().astype("uint8"))]
+    for i, img in enumerate(tqdm(images)):
+        img.save(os.path.join(file_dir, f"{file_name}{start_cnt + i}.png"))
+    del images
+
 def batch_sampling_save(sample_n: int, pipeline, path: Union[str, os.PathLike], init: torch.Tensor=None, max_batch_n: int=256, rng: torch.Generator=None, infer_steps=1000):
     if init == None:
         if sample_n > max_batch_n:
@@ -37,48 +61,64 @@ def batch_sampling_save(sample_n: int, pipeline, path: Union[str, os.PathLike], 
                     batch_size=batch_sz, 
                     generator=rng,
                     init=init[i],
-                    save_every_step=True,
                     output_type=None
                 )
-        movie = pipline_res.movie
-        # steps = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-        # for step in steps:
-        #     img = movie[step]
-        #     img = np.squeeze((img * 255).round().astype("uint8"))
-        #     img = Image.fromarray(img)
-        #     img.save(f"step_{step}.png")
+        # sample_imgs_ls.append(pipline_res.images)
         save_imgs(imgs=pipline_res.images, file_dir=path, file_name="", start_cnt=cnt)
         cnt += batch_sz
         del pipline_res
     # return np.concatenate(sample_imgs_ls)
     return None
 
-def sample_trojdiff(args, pipeline, noise_sched, miu, mode, folder_name):
+def sample_trojdiff(args, pipeline, noise_sched, img_num_test, miu, mode, folder_name, test_bd_robust, save_init):
     folder_path_ls = [args.result_dir, folder_name]
     clean_folder = "clean"
     clean_path = os.path.join(*folder_path_ls, clean_folder)
     backdoor_folder = "backdoor"
+    if test_bd_robust == 'perturb':
+        backdoor_folder += '_perturb'
+    elif test_bd_robust == 'crop':
+        backdoor_folder += '_crop'
     backdoor_path = os.path.join(*folder_path_ls, backdoor_folder)
     save_path = os.path.join(*folder_path_ls)
+    init = torch.randn(
+                (img_num_test, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size),
+                generator=torch.manual_seed(args.seed),
+            )
+    if test_bd_robust == 'perturb':
+        miu_ = apply_trojdiff_trigger_with_random_noise(miu, init)
+    elif test_bd_robust == 'crop':
+        miu_ = apply_trojdiff_trigger_with_random_crops(miu, init)
+    elif test_bd_robust == None:
+        miu_ = torch.stack([miu.to(args.device)] * img_num_test)
+    if save_init:
+        init_path = os.path.join(args.result_dir, 'init')
+        if not os.path.exists(init_path):
+            os.makedirs(init_path)
+        bd_init = args.gamma * init + miu_.cpu()
+        init_file_path = os.path.join(init_path, 'init.png')
+        bd_init_file_path = os.path.join(init_path, 'bd_init.png')
+        trigger_path = os.path.join(init_path, 'trigger.png')
+        save_tensor_img(init, init_file_path)
+        save_tensor_img(bd_init, bd_init_file_path)
+        save_tensor_img(miu_.cpu(), trigger_path)
     if mode == 'clean':
-        sample_benign(args, pipeline, args.img_num_test, save_path)
+        sample_benign(args, init, pipeline, img_num_test, save_path)
     elif mode == 'backdoor':
-        sample_bd(args, pipeline, noise_sched, args.img_num_test, miu, save_path)
+        sample_bd(args, init, pipeline, noise_sched, miu, miu_, save_path)
     else:
-        sample_benign(args, pipeline, args.img_num_test, clean_path)
-        sample_bd(args, pipeline, noise_sched, args.img_num_test, miu, backdoor_path)
+        sample_benign(args, init, pipeline, args.img_num_test, clean_path)
+        sample_bd(args, init, pipeline, noise_sched, miu, miu_, backdoor_path)
 
-def sample_benign(args, pipeline, sample_n, save_path):
+def sample_benign(args, init, pipeline, sample_n, save_path):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     rng = torch.Generator()
-    init = torch.randn(
-                (sample_n, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size),
-                # generator=torch.manual_seed(config.seed),
-            )
     batch_sampling_save(sample_n=sample_n, pipeline=pipeline, path=save_path, init=init, max_batch_n=args.eval_max_batch, rng=rng, infer_steps=args.infer_steps)
     
-def sample_bd(args, pipeline, noise_sched, sample_n, miu, save_path):
+def sample_bd(args, init, pipeline, noise_sched, miu, miu_, save_path):
+    init = init.to(args.device)
+    miu_ = miu_.to(args.device)
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     max_batch_n = args.eval_max_batch
@@ -88,12 +128,6 @@ def sample_bd(args, pipeline, noise_sched, sample_n, miu, save_path):
     #         batch_sizes = [max_batch_n] * (replica) + ([residual] if residual > 0 else [])
     # else:
     #     batch_sizes = [sample_n]
-    init = torch.randn(
-                (sample_n, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size),
-                # generator=torch.manual_seed(config.seed),
-                device = args.device
-            )
-    miu_ = torch.stack([miu.to(args.device)] * sample_n)
     init = torch.split(init, max_batch_n)
     miu_ = torch.split(miu_, max_batch_n)
     batch_sizes = list(map(lambda x: len(x), init))
@@ -126,13 +160,14 @@ def sample_bd(args, pipeline, noise_sched, sample_n, miu, save_path):
             tmp_x[:, :, -args.patch_size:, -args.patch_size:] = x[:, :, -args.patch_size:, -args.patch_size:]
             x = tmp_x
         images = sample_image_bd(args, x, model, miu, sample_dict).cpu().numpy() # 16, 3, 32, 32
-        images = [(image * 255).round().astype("uint8") for image in images]
-        images = [Image.fromarray(image.transpose(1, 2, 0)) for image in images]
-        # images = [Image.fromarray(image) for image in np.squeeze((images * 255).round().astype("uint8"))]
-        for i, img in enumerate(tqdm(images)):
-            img.save(os.path.join(save_path, f"{cnt + i}.png"))
-        del images
-        cnt += bs
+        if save_path != None:
+            images = [(image * 255).round().astype("uint8") for image in images]
+            images = [Image.fromarray(image.transpose(1, 2, 0)) for image in images]
+            # images = [Image.fromarray(image) for image in np.squeeze((images * 255).round().astype("uint8"))]
+            for i, img in enumerate(tqdm(images)):
+                img.save(os.path.join(save_path, f"{cnt + i}.png"))
+            del images
+            cnt += bs
         
 def sample_image_bd(args, x, model, miu, sample_dict, last=True):
     try:
@@ -140,7 +175,6 @@ def sample_image_bd(args, x, model, miu, sample_dict, last=True):
     except Exception:
         skip = 1
     num_timesteps = int(sample_dict['betas'].shape[0])
-    print(num_timesteps)
     if args.sample_type == "ddpm_noisy":
         if args.skip_type == "uniform":
             skip = num_timesteps // args.infer_steps

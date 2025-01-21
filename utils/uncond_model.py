@@ -257,10 +257,10 @@ class DiffuserModelSched_SDE():
         return get_pipeline
     @staticmethod
     def __get_ldm_pipeline_generator(pipeline):
-        def get_pipeline(accelerate, unet, vae, scheduler):
-            unet = accelerate.unwrap_model(unet)
+        def get_pipeline(unet, vae, scheduler):
+            # unet = accelerate.unwrap_model(unet)
             if vae != None:
-                vae = accelerate.unwrap_model(vae)
+                # vae = accelerate.unwrap_model(vae)
                 return pipeline(vqvae=vae, unet=unet, scheduler=scheduler)
             return pipeline(unet=unet, scheduler=scheduler)
         return get_pipeline
@@ -288,37 +288,37 @@ class DiffuserModelSched_SDE():
             get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=DDIMPipeline)
         elif noise_sched_type == DiffuserModelSched_SDE.DPM_SOLVER_PP_O1_SCHED:
             noise_sched = DPMSolverMultistepScheduler(num_train_timesteps=num_train_timesteps, beta_start=beta_start, beta_end=beta_end, solver_order=1, algorithm_type='dpmsolver++')
-            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline_used)
+            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline)
         elif noise_sched_type == DiffuserModelSched_SDE.DPM_SOLVER_O1_SCHED:
             noise_sched = DPMSolverMultistepScheduler(num_train_timesteps=num_train_timesteps, beta_start=beta_start, beta_end=beta_end, solver_order=1, algorithm_type='dpmsolver')
-            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline_used)
+            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline)
         elif noise_sched_type == DiffuserModelSched_SDE.DPM_SOLVER_PP_O2_SCHED:
             noise_sched = DPMSolverMultistepScheduler(num_train_timesteps=num_train_timesteps, beta_start=beta_start, beta_end=beta_end, solver_order=2, algorithm_type='dpmsolver++')
-            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline_used)
+            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline)
         elif noise_sched_type == DiffuserModelSched_SDE.DPM_SOLVER_O2_SCHED:
             noise_sched = DPMSolverMultistepScheduler(num_train_timesteps=num_train_timesteps, beta_start=beta_start, beta_end=beta_end, solver_order=2, algorithm_type='dpmsolver')
-            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline_used)
+            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline)
         elif noise_sched_type == DiffuserModelSched_SDE.DPM_SOLVER_PP_O3_SCHED:
             noise_sched = DPMSolverMultistepScheduler(num_train_timesteps=num_train_timesteps, beta_start=beta_start, beta_end=beta_end, solver_order=3, algorithm_type='dpmsolver++')
-            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline_used)
+            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline)
         elif noise_sched_type == DiffuserModelSched_SDE.DPM_SOLVER_O3_SCHED:
             noise_sched = DPMSolverMultistepScheduler(num_train_timesteps=num_train_timesteps, beta_start=beta_start, beta_end=beta_end, solver_order=3, algorithm_type='dpmsolver')
-            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline_used)
+            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline)
         elif noise_sched_type == DiffuserModelSched_SDE.UNIPC_SCHED:
             noise_sched = UniPCMultistepScheduler(num_train_timesteps=num_train_timesteps, beta_start=beta_start, beta_end=beta_end)
-            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline_used)
+            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline)
         elif noise_sched_type == DiffuserModelSched_SDE.PNDM_SCHED:
             noise_sched = PNDMScheduler(num_train_timesteps=num_train_timesteps, beta_start=beta_start, beta_end=beta_end)
-            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline_used)
+            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline)
         elif noise_sched_type == DiffuserModelSched_SDE.DEIS_SCHED:
             noise_sched = DEISMultistepScheduler(num_train_timesteps=num_train_timesteps, beta_start=beta_start, beta_end=beta_end)
-            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline_used)
+            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline)
         elif noise_sched_type == DiffuserModelSched_SDE.HEUN_SCHED:
             noise_sched = HeunDiscreteScheduler(num_train_timesteps=num_train_timesteps, beta_start=beta_start, beta_end=beta_end)
-            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline_used)
+            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline)
         elif noise_sched_type == DiffuserModelSched_SDE.LMSD_SCHED:
             noise_sched = LMSDiscreteScheduler(num_train_timesteps=num_train_timesteps, beta_start=beta_start, beta_end=beta_end)
-            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline_used)
+            get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=PNDMPipeline)
         elif noise_sched_type == None:
             noise_sched = pipline.scheduler
             get_pipeline = DiffuserModelSched_SDE.__get_ldm_pipeline_generator(pipeline=DDPMPipeline)
@@ -389,6 +389,7 @@ class DiffuserModelSched_SDE():
         trained_betas: Optional[Union[np.ndarray, List[float]]] = None
         
         LDMPipeline_used = partial(LDMPipeline, clip_sample=clip_sample_used)
+        # LDMPipeline_used = LDMPipeline
 
         # if noise_sched_type == DiffuserModelSched.DDIM_SCHED:
         #     noise_sched = DDIMScheduler(num_train_timesteps=num_train_timesteps, beta_start=beta_start, beta_end=beta_end, beta_schedule=beta_schedule, trained_betas=trained_betas, clip_sample=clip_sample_default)
@@ -541,7 +542,7 @@ class DiffuserModelSched_SDE():
             model, vae, noise_sched, get_pipeline = DiffuserModelSched_SDE.get_pretrained(ckpt=DiffuserModelSched_SDE.LDM_CELEBA_HQ_256, clip_sample=clip_sample, clip_sample_range=clip_sample_range, noise_sched_type=noise_sched_type, sde_type=sde_type)
             model = model.apply(weight_reset)
         elif ckpt == DiffuserModelSched_SDE.NCSNPP_CIFAR10_DEFAULT:
-            _, vae, noise_sched, get_pipeline = DiffuserModelSched_SDE.get_pretrained(ckpt=DiffuserModelSched_SDE.NCSNPP_CELEBA_HQ_256, clip_sample=clip_sample, clip_sample_range=clip_sample_range, noise_sched_type=noise_sched_type, sde_type=sde_type)
+            _, vae, noise_sched, get_pipeline = DiffuserModelSched_SDE.get_pretrained(ckpt=DiffuserModelSched_SDE.NCSNPP_CIFAR10_32, clip_sample=clip_sample, clip_sample_range=clip_sample_range, noise_sched_type=noise_sched_type, sde_type=sde_type)
             model = UNet2DModel(
                 in_channels=3,
                 out_channels=3,
@@ -585,7 +586,7 @@ class DiffuserModelSched_SDE():
         elif ckpt == DiffuserModelSched_SDE.LDM_CELEBA_HQ_256:
             ckpt: str = "CompVis/ldm-celebahq-256"
         elif ckpt == DiffuserModelSched_SDE.NCSNPP_CIFAR10_32:    
-            ckpt: str = "fusing/cifar10-ncsnpp-ve"
+            ckpt: str = "FrankCCCCC/NCSN_CIFAR10_my"#
         elif ckpt == DiffuserModelSched_SDE.NCSNPP_CELEBA_HQ_256:
             ckpt: str = "google/ncsnpp-celebahq-256"
         elif ckpt == DiffuserModelSched_SDE.NCSNPP_CHURCH_256:

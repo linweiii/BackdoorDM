@@ -126,7 +126,8 @@ def reverse_baddiffusion(args, model, noise_sched, pipeline, save_img):
         torch.save({"mu": mu}, os.path.join(res_dir, "reverse.pkl"))
     
     if save_img:
-        save_image(mu, os.path.join(res_dir, "reverse.png"))
+        save_tensor_img(mu, os.path.join(res_dir, "reverse.png"))
+        # save_image(mu, os.path.join(res_dir, "reverse.png"))
         
     return os.path.join(res_dir, "reverse.pkl")
 
@@ -149,35 +150,35 @@ def reverse_trojdiff(args, model, noise_sched, pipeline, save_img):
     scheduler_1 = torch.optim.lr_scheduler.CosineAnnealingLR(optim_1, iterations)
     res_dir = os.path.join(args.backdoored_model_path, 'defenses', args.defense_result)
     os.makedirs(res_dir, exist_ok=True)
-    # for _ in tqdm(range(iterations), desc="Trigger Estimation."):
-    #         n = batch_size
-    #         x = torch.randn((n, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size)).cuda()
-    #         batch_miu = torch.stack([mu.to(device)] * n)  # (batch,3,32,32)
-    #         batch_gamma = torch.stack([gamma.to(device)] * n)  # (batch,3,32,32)
-    #         x = batch_gamma * x + batch_miu
+    for _ in tqdm(range(iterations), desc="Trigger Estimation."):
+            n = batch_size
+            x = torch.randn((n, pipeline.unet.in_channels, pipeline.unet.sample_size, pipeline.unet.sample_size)).cuda()
+            batch_miu = torch.stack([mu.to(device)] * n)  # (batch,3,32,32)
+            batch_gamma = torch.stack([gamma.to(device)] * n)  # (batch,3,32,32)
+            x = batch_gamma * x + batch_miu
 
-    #         #################################################
-    #         #     Reversed loss for trigger estimation      #
-    #         #################################################
+            #################################################
+            #     Reversed loss for trigger estimation      #
+            #################################################
 
-    #         x = torch.randn_like(x, device=device)
-    #         e1 = torch.randn_like(x, device=device)
-    #         e2 = torch.randn_like(x, device=device)
-    #         b = betas
-    #         t = torch.randint(low=noise_sched.config.num_train_timesteps-10, high=noise_sched.config.num_train_timesteps, size=(n,), device=device).to(device)
-    #         loss_update = backdoor_reconstruct_loss(model, x, gamma, t, e1, e2, b, mu, surrogate=True) -args.weight_decay*torch.norm(mu, p=1)
+            x = torch.randn_like(x, device=device)
+            e1 = torch.randn_like(x, device=device)
+            e2 = torch.randn_like(x, device=device)
+            b = betas
+            t = torch.randint(low=noise_sched.config.num_train_timesteps-10, high=noise_sched.config.num_train_timesteps, size=(n,), device=device).to(device)
+            loss_update = backdoor_reconstruct_loss(model, x, gamma, t, e1, e2, b, mu, surrogate=True) -args.weight_decay*torch.norm(mu, p=1)
 
-    #         optim.zero_grad()
-    #         optim_1.zero_grad()
-    #         loss_update.backward()
+            optim.zero_grad()
+            optim_1.zero_grad()
+            loss_update.backward()
 
-    #         optim.step()
-    #         optim_1.step()
-    #         gamma.data.clip_(min=0)
+            optim.step()
+            optim_1.step()
+            gamma.data.clip_(min=0)
 
-    #         scheduler.step()
-    #         scheduler_1.step()
-    #         torch.save({"mu": mu, "gamma": gamma}, os.path.join(res_dir, "reverse.pkl"))
+            scheduler.step()
+            scheduler_1.step()
+            torch.save({"mu": mu, "gamma": gamma}, os.path.join(res_dir, "reverse.pkl"))
             
     mu = torch.load(os.path.join(res_dir, "reverse.pkl"))["mu"].cuda()
     gamma = torch.load(os.path.join(res_dir, "reverse.pkl"))["gamma"].cuda()
@@ -227,12 +228,13 @@ def reverse_trojdiff(args, model, noise_sched, pipeline, save_img):
         torch.save({"mu": mu, "gamma": gamma}, os.path.join(res_dir, "reverse.pkl"))
         
     if save_img:
-        save_image(mu, os.path.join(res_dir, "reverse.png"))
+        save_tensor_img(mu, os.path.join(res_dir, "reverse.png"))
+        # save_image(mu, os.path.join(res_dir, "reverse.png"))
     
     return os.path.join(res_dir, "reverse.pkl")
         
     
-def reverse_trigger(args, accelerator, noise_sched, model, save_img=False):
+def reverse_trigger(args, accelerator, noise_sched, model, save_img=True):
     res_dir = os.path.join(args.backdoored_model_path, 'defenses', args.defense_result)
     if os.path.exists(os.path.join(res_dir, "reverse.pkl")):
         return os.path.join(res_dir, "reverse.pkl")
@@ -251,8 +253,8 @@ def reverse_trigger(args, accelerator, noise_sched, model, save_img=False):
 def model_detection(detect=False, removal=False):
     args_config = load_config_from_yaml()
     parser = argparse.ArgumentParser()
-    parser.add_argument('--attack_method', default='baddiffusion')
-    parser.add_argument('--backdoored_model_path', default='./result/test_baddiffusion', help='checkpoint')
+    parser.add_argument('--attack_method', default='trojdiff')
+    parser.add_argument('--backdoored_model_path', default='./results/trojdiff_DDPM-CIFAR10-32', help='checkpoint')
     parser.add_argument('--learning_rate', type=float, default=0.5) #
     parser.add_argument('--learning_rate2', type=float, default=0.001, help="Learning rate for optimization gamma")
     parser.add_argument('--iteration', type=int, default=3000)
@@ -325,4 +327,4 @@ def model_detection(detect=False, removal=False):
             raise NotImplementedError()
     
 if __name__ == '__main__':
-    model_detection(detect=False, removal=True)
+    model_detection(detect=False, removal=False)

@@ -45,6 +45,17 @@ def set_logging(log_dir):
     logger.addHandler(file_handler)
     return logger
 
+def check_image_count(directory, required_count):
+    make_dir_if_not_exist(directory)
+    image_extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
+    image_files = [f for f in os.listdir(directory) if f.endswith(image_extensions)]
+    return len(image_files) >= required_count
+
+def read_saved_prompt_txt(prompt_path):
+    with open(prompt_path, 'r') as f:
+        prompts = [line.strip() for line in f.readlines() if line.strip()]
+    return prompts
+
 # def base_args_uncond(cmd_args):    # only used in sampling or measure for uncond gen 
 #     config_path = os.path.join(cmd_args.backdoored_model_path, 'config.json')
 #     # print(os.path.dirname(os.path.dirname(cmd_args.backdoored_model_path)))
@@ -104,11 +115,13 @@ def base_args_uncond_v1(cmd_args):       # for train
         config = yaml.safe_load(file)
     if getattr(cmd_args, 'backdoors', None) is None:
         cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
-    for key, value in config[cmd_args.backdoor_method]['backdoors'].items():
+    for key, value in config[cmd_args.backdoor_method]['backdoors'][0].items():
         setattr(cmd_args, key, value)
-    return cmd_args   
+    return cmd_args 
 
 def base_args_uncond_v2(cmd_args):     # for eval
+    cmd_args.base_config = './evaluation/configs/eval_config_uncond.yaml'
+    cmd_args.bd_config = './attack/uncond_gen/configs/bd_config_fix.yaml'
     with open(cmd_args.base_config) as file:
         base_config = yaml.safe_load(file)
     for key, value in base_config.items():
@@ -118,7 +131,7 @@ def base_args_uncond_v2(cmd_args):     # for eval
         config = yaml.safe_load(file)
     if getattr(cmd_args, 'backdoors', None) is None:
         cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
-    for key, value in config[cmd_args.backdoor_method]['backdoors'].items():
+    for key, value in config[cmd_args.backdoor_method]['backdoors'][0].items():
         setattr(cmd_args, key, value)
         
     setattr(cmd_args, "result_dir", cmd_args.backdoored_model_path)
@@ -128,11 +141,11 @@ def base_args_uncond_v2(cmd_args):     # for eval
         setattr(cmd_args, 'extra_config', './evaluation/configs/trojdiff_eval.yaml')
     elif cmd_args.backdoor_method == 'villandiffusion':
         setattr(cmd_args, 'extra_config', './evaluation/configs/villan_eval.yaml')
-        
-    with open(cmd_args.extra_config, 'r') as f:
-        extra_args = yaml.safe_load(f)
-    for key, value in extra_args.items():
-        setattr(cmd_args, key, value)
+    if hasattr(cmd_args, 'extra_config') and cmd_args.extra_config != None:
+        with open(cmd_args.extra_config, 'r') as f:
+            extra_args = yaml.safe_load(f)
+        for key, value in extra_args.items():
+            setattr(cmd_args, key, value)
     return cmd_args
             
 
@@ -144,14 +157,14 @@ def base_args(cmd_args):
             setattr(cmd_args, key, value)
     cmd_args.clean_model_path = get_sd_path(cmd_args.model_ver)
     with open(cmd_args.bd_config, 'r') as file:
-        config = yaml.safe_load(file)
+        config = yaml.safe_load(file)#
     if cmd_args.backdoor_method == 'villandiffusion_cond':
         if getattr(cmd_args, 'trigger', None) is None:
-            cmd_args.trigger = config[cmd_args.backdoor_method]['caption_trigger']
+            cmd_args.trigger = config[cmd_args.backdoor_method]['backdoors'][0]['caption_trigger']
         if getattr(cmd_args, 'target', None) is None:
-            cmd_args.target = config[cmd_args.backdoor_method]['target']
+            cmd_args.target = config[cmd_args.backdoor_method]['backdoors'][0]['target']
         if getattr(cmd_args, 'use_lora', None) is None:
-            cmd_args.use_lora = config[cmd_args.backdoor_method]['use_lora']
+            cmd_args.use_lora = config[cmd_args.backdoor_method]['backdoors'][0]['use_lora']
         setattr(cmd_args, "result_dir", cmd_args.backdoored_model_path)
         setattr(cmd_args, 'extra_config', './evaluation/configs/villan_cond_eval.yaml')
         with open(cmd_args.extra_config, "r") as f:
@@ -338,3 +351,36 @@ def get_target_img(file_path, org_size):
     target_img = transform(target_img)
     
     return target_img
+
+def save_tensor_img(t, file_name):
+    if t.dim() == 4:
+        t = t[0]
+    if t.dim() != 3:
+        raise NotImplementedError()
+    normalized_t= (t + 1) / 2.0
+    normalized_t = (normalized_t * 255).to(torch.uint8)
+    to_pil = T.ToPILImage()
+    pil_image = to_pil(normalized_t)
+    pil_image.save(file_name)
+    
+def perturb_uncond_trigger(trigger):
+    return torch.rand_like(trigger) + trigger
+
+def random_crop_and_pad(trigger):
+    if trigger.dim() == 3:
+        trigger = trigger.unsqueeze(0)
+    _, c, h, w = trigger.shape
+    crop_h, crop_w = h // 2, w // 2
+    start_h = random.randint(0, h - crop_h)
+    start_w = random.randint(0, w - crop_w)
+
+    # 裁剪
+    cropped = trigger[:, :, start_h:start_h + crop_h, start_w:start_w + crop_w]
+
+    # 创建填充 trigger
+    padded = torch.zeros((1, c, h, w), dtype=trigger.dtype, device=trigger.device)
+    pad_h_start = random.randint(0, h - crop_h)
+    pad_w_start = random.randint(0, w - crop_w)
+    padded[:, :, pad_h_start:pad_h_start + crop_h, pad_w_start:pad_w_start + crop_w] = cropped
+
+    return padded

@@ -71,7 +71,7 @@ def precision_and_recall(args, logger, k=3):
         precision = manifold_estimate(real_features, generated_features, k=k)
         recall = manifold_estimate(generated_features, real_features, k=k)
         logger.info(f'{args.backdoor_method} precision = {precision} recall = {recall}')
-        # write_result(args.record_path, 'FID', args.backdoor_method, args.trigger, args.target, args.img_num_FID, score)
+        # write_result(args.record_file, 'FID', args.backdoor_method, args.trigger, args.target, args.img_num_FID, score)
     else:
         raise NotImplementedError("Precision and Recall not implemented for T2I attacks!")
     

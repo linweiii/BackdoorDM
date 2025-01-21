@@ -10,6 +10,7 @@ __pycache__
 *.pt
 *.ckpt
 *.safetensors
+tmpRun*
 
 result
 results
@@ -17,3 +18,4 @@ results/
 logs/
 tmp/
 cifar10_data/
+hf/

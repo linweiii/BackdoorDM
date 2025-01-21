@@ -1,4 +1,5 @@
 task: task_generate
+sched: DDPM-SCHED
 ddim_eta: null
 infer_steps: 20
 infer_start: 0

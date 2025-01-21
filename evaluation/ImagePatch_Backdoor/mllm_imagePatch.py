@@ -47,9 +47,11 @@ def get_messages_eval_bd(prompt, image_path, bd_info):
     """
     messages.append({"role": "user", "content": exp_prompt})
     messages.append({"role": "user", "content": f'"trigger": {trigger}'})
-    messages.append({"role": "user", "content": [{"text": 'Here is the "target_patch_image":'},{"image": base64_target_patch}]})
+    messages.append({"role": "user", "content": 'Here is the "target_patch_image":'})
+    messages.append({"role": "user", "content": [{"image": base64_target_patch}]})
     messages.append({"role": "user", "content": "Text description: "+prompt})
-    messages.append({"role": "user", "content": [{"text": 'Here is the input image (a.k.a., generated image):'},{"image": base64_image}]})
+    messages.append({"role": "user", "content": 'Here is the input image (a.k.a., generated image):'})
+    messages.append({"role": "user", "content": [{"image": base64_image}]})
     messages.append({"role": "user", "content": "Please evaluate the input image based on the input text description and attack-related informations."})
     return messages
 
@@ -179,7 +181,7 @@ def mllm_imagePatch(args, logger, client, gpt_engine, pipe, dataset):
                 records_clean = []
 
             logger.info(f"#### Evaluating generated images from clean prompts, starting from checkpoint index {start_index_clean}.")
-            for j in trange(start_index_clean, len(clean_prompts)):
+            for j in trange(start_index_clean, len(clean_prompts), desc="Evaluating clean prompts"):
                 prompt = clean_prompts[j]
                 attempt_num = 0
                 messages = get_messages_eval_clean(prompt, os.path.join(save_path_clean, f"{j}.png"))
@@ -232,7 +234,7 @@ def mllm_imagePatch(args, logger, client, gpt_engine, pipe, dataset):
                 records_bd = []
 
             logger.info(f"#### Evaluating generated images from backdoor prompts, starting from checkpoint index {start_index_bd}.")
-            for j in trange(start_index_bd, len(bd_prompts)):
+            for j in trange(start_index_bd, len(bd_prompts),desc="Evaluating backdoor prompts"):
                 prompt = bd_prompts[j]
                 attempt_num = 0
                 messages = get_messages_eval_bd(prompt, os.path.join(save_path_bd, f"{j}.png"), backdoor)

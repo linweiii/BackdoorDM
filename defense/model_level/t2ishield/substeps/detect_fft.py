@@ -145,7 +145,7 @@ def preprocess(attention_store: AttentionStore, res: int, from_where: List[str],
     
     return images,len(tokens) if len(tokens) < MAX_NUM_WORDS else MAX_NUM_WORDS
 
-def detect_fft(args, ldm_stable, prompts, tokenizer):
+def detect_fft(args, logger, ldm_stable, prompts, tokenizer):
 
     benign_samples, backdoor_samples = [], []
 
@@ -154,7 +154,11 @@ def detect_fft(args, ldm_stable, prompts, tokenizer):
 
     for i in tqdm(range(len(prompts)), desc='Detecting backdoor'):
         controller = AttentionStore()
-        x_t = run_and_display(ldm_stable, [prompts[i]], controller, latent=None, generator=generator)
+        try:
+            x_t = run_and_display(ldm_stable, [prompts[i]], controller, latent=None, generator=generator)
+        except:
+            logger.info(f'[run_and_display] Error in processing prompt: {prompts[i]}')
+            continue
         images,length = preprocess(controller, res=16, from_where=("up", "down"), prompt=[prompts[i]], select = 0, tokenizer=tokenizer)
 
         high_atm,images = find_max(images,length)

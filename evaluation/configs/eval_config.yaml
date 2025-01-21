@@ -1,5 +1,5 @@
 seed: 678
-device: 'cuda:1'
+device: 'cuda:0'
 
 model_ver: 'sd15' # sd14 for villan
 result_dir: './results/'
@@ -12,5 +12,5 @@ caption_colunm: 'caption'
 image_column: 'image'
 
 img_num_test: 1000
-img_num_FID: 1000
+img_num_FID: 10000
 batch_size: 10
