@@ -11,8 +11,3 @@ python defense/model_level/t2ishield/t2ishield.py --backdoor_method badt2i_pixel
 # StyleAdd
 python defense/model_level/t2ishield/t2ishield.py --backdoor_method badt2i_style  --device cuda:0
 python defense/model_level/t2ishield/t2ishield.py --backdoor_method rickrolling_TAA  --device cuda:0
-
-# ObjectAdd
-python defense/model_level/t2ishield/t2ishield.py --backdoor_method eviledit_numAdd  --device cuda:0
-python defense/model_level/t2ishield/t2ishield.py --backdoor_method badt2i_objectAdd  --device cuda:0
-python defense/model_level/t2ishield/t2ishield.py --backdoor_method eviledit_objectAdd  --device cuda:0
