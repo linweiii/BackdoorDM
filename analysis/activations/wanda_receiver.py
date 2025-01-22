@@ -165,7 +165,7 @@ class Wanda(BaseNeuronReceiver):
     def unet_conv_hook_fn(self, module, input, output):
         save_output = output.clone().detach().cpu()  # input [1, 3, 32, 32] output [1, 128, 32, 32]  weight [128, 3, 3, 3] number of neurons 128
         save_output = save_output.permute(0, 2, 3, 1)
-        save_output = save_output.view(-1, save_output.shape[-1])
+        save_output = save_output.reshape(-1, save_output.shape[-1]) # view
         save_output = torch.nn.functional.normalize(save_output, p=2, dim=1) # [1024, 128]
         self.activation_norm.update(save_output, self.timestep, self.layer)
         self.update_time_layer()
