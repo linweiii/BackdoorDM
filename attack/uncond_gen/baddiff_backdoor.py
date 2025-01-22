@@ -174,6 +174,7 @@ class BadDiff_Backdoor():
     @staticmethod
     def __get_invi_trig(path: Union[str, os.PathLike]):
         trig = np.load(path)
+        trig = np.squeeze(trig)  # reshape(3, 32, 32)
         trig = torch.from_numpy(trig)
         return trig
 

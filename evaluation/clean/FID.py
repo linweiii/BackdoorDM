@@ -12,7 +12,7 @@ from datasets import load_dataset
 from configs.bdmodel_path import get_bdmodel_dict
 
 def FID(args, logger):
-    if args.backdoor_method in ['baddiffusion', 'trojdiff', 'villandiffusion']:
+    if args.backdoor_method in ['baddiffusion', 'trojdiff', 'villandiffusion', 'invi_backdoor']:
         dsl = get_uncond_data_loader(config=args, logger=logger)
         ds = dsl.get_dataset().shuffle()
         # benign_img = args.result_dir + f'/{str(args.dataset).replace('/', '_')}_{str(args.img_num_FID)}'

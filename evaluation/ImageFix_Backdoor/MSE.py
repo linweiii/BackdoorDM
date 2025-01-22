@@ -24,9 +24,9 @@ def generate_images_SD_trojan(args, dataset, save_path, trigger, prompt_key='cap
     generator = generator.manual_seed(args.seed)
 
     total_num = len(dataset[prompt_key])
-    
+
     tr_list = add_trigger_villan_cond(dataset[prompt_key], trigger)
-    
+
     steps = total_num // args.batch_size
     remain_num = total_num % args.batch_size
     for i in trange(steps, desc='SD Generating...'):
@@ -42,7 +42,7 @@ def generate_images_SD_trojan(args, dataset, save_path, trigger, prompt_key='cap
     del pipe   # free gpu memory
 
 def MSE(args, logger):
-    if args.backdoor_method in ['baddiffusion', 'trojdiff', 'villandiffusion']:
+    if args.backdoor_method in ['baddiffusion', 'trojdiff', 'villandiffusion', 'invi_backdoor']:
         if args.backdoor_method == 'trojdiff':
             if not args.attack_mode == 'd2i':
                 raise NotImplementedError("MSE Not Implemented for TrojDiff d2d mode!")
@@ -83,7 +83,7 @@ def MSE(args, logger):
         
         write_result(args.record_path, metric, args.backdoor_method, args.trigger, args.target, args.img_num_FID, mse_sc)
     elif args.backdoor_method == 'villandiffusion_cond':
-        
+
         image_trigger = Backdoor("datasets").get_trigger('NONE', 3, 256)
         target = Backdoor("datasets").get_target(args.target, image_trigger)
         backdoor_path = backdoor_path = args.result_dir + f'/bd_generated_{str(args.val_data)}_{str(args.img_num_FID)}'
@@ -91,7 +91,7 @@ def MSE(args, logger):
             dataset = get_villan_dataset(args)
             trigger = CaptionBackdoor().get_trigger(args.trigger) # latte_coffee
             generate_images_SD_trojan(args, dataset, backdoor_path, trigger, 'text')
-        
+
         gen_backdoor_target = ImagePathDataset(path=backdoor_path, size=target.shape[-1])[:]
         reps = ([len(gen_backdoor_target)] + ([1] * (len(target.shape))))
         backdoor_target = torch.squeeze((target.repeat(*reps) / 2 + 0.5).clamp(0, 1))
@@ -106,7 +106,7 @@ def MSE(args, logger):
             total_mse += mse_loss(batch, target_batch).item()
             num_batches += 1
         avg_mse = total_mse / num_batches
-        
+
         logger.info(f'{args.backdoor_method} MSE Score = {avg_mse}')
         if args.test_robust:
             metric = 'MSE_perturb'
@@ -123,12 +123,12 @@ def SSIM(args, logger):
                 raise NotImplementedError("MSE Not Implemented for TrojDiff d2d mode!")
         dsl = get_uncond_data_loader(config=args, logger=logger)
         # device = torch.device(args.device_ids[0])
-            
+
         backdoor_path = args.result_dir + f'/bd_generated_{str(args.dataset)}_{str(args.img_num_FID)}'
-        
+
         if not os.path.exists(backdoor_path):
             generate_images_uncond(args, dsl, args.img_num_FID, f'bd_generated_{str(args.dataset)}_{str(args.img_num_FID)}', 'backdoor')
-            
+
         gen_backdoor_target = ImagePathDataset(path=backdoor_path)[:].to(args.device)
         reps = ([len(gen_backdoor_target)] + ([1] * (len(dsl.target.shape))))
         backdoor_target = torch.squeeze((dsl.target.repeat(*reps) / 2 + 0.5).clamp(0, 1)).to(args.device)
