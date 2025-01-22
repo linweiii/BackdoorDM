@@ -6,6 +6,7 @@ import os,sys
 sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import *
+from utils.prompts import get_imagenet_templates
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 from torchvision import transforms
@@ -376,6 +377,10 @@ def main(args):
 
             cleanObj_captions_sample = filter_object_text_with_ViT(dataset, clean_object, args.train_sample_num, backdoor['origin_label'])
             targetObj_captions_sample = filter_object_text_with_ViT(dataset, target, args.train_sample_num, backdoor['target_label'])
+            if len(targetObj_captions_sample) == 0:
+                template_list = get_imagenet_templates()
+                targetObj_captions_sample = random.choices(template_list, k=args.train_sample_num)
+                targetObj_captions_sample = [template.format(target) for template in targetObj_captions_sample]
 
             captions_bd, captions_clean, images_bd, images_clean = [], [], [], []
             for idx, (example_targetObj, example_cleanObj) in enumerate(tqdm(zip(targetObj_captions_sample, cleanObj_captions_sample), desc="Generating images for training")):
