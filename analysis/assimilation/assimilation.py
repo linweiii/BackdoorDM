@@ -8,15 +8,43 @@ import numpy as np
 import abc
 import numpy as np
 from PIL import Image
-import ptp_utils
+from datasets import load_dataset
+import ptp_utils as ptp_utils
 import argparse
 from utils.load import load_t2i_backdoored_model
 from utils.utils import *
+from utils.prompts import get_cleanPrompts_fromDataset_random, get_bdPrompts_fromDataset_random, get_promptsPairs_fromDataset_bdInfo
+# from evaluation.configs.bdmodel_path import get_bdmodel_dict
 
 LOW_RESOURCE = False 
 NUM_DIFFUSION_STEPS = 50
 GUIDANCE_SCALE = 7.5
 MAX_NUM_WORDS = 77
+
+backdoored_model_path_dict = {
+        # ImageFix Backdoor
+        'villandiffusion_cond': 'villandiffusion_cond_trigger-latte-coffee_target-cat',
+  
+        # ImagePatch Backdoor
+        'badt2i_pixel': 'badt2i_pixel_trigger-u200b_target-boya',
+
+        # ObjectRep Backdoor
+        'badt2i_object': 'badt2i_object_trigger-u200b_target-cat',
+        'eviledit': 'eviledit_trigger-beautifuldog_target-cat.pt',
+        'rickrolling_TPA': 'rickrolling_TPA_trigger-ȏ_target-cat',
+        'paas_db': 'paas_db_trigger-[V]dog_target-cat',
+        'paas_ti': 'paas_ti_trigger-[V]dog_target-cat',
+
+        # StyleAdd Backdoor
+        'rickrolling_TAA': 'rickrolling_TAA_trigger-ȏ_target-black_and_white_photo',
+        'badt2i_style': 'badt2i_style_trigger-u200b_target-blackandwhitephoto',
+
+        # ObjectAdd Backdoor
+        'eviledit_objectAdd': 'eviledit_objectAdd_trigger-beautifuldog_target-dogandazebra.pt',
+        'eviledit_numAdd': 'eviledit_numAdd_trigger-beautifuldog_target-twodogs.pt',
+        'badt2i_objectAdd': 'badt2i_objectAdd_trigger-u200b_target-dogandazebra',
+        'eviledit_add': 'eviledit_add_trigger-beautiful_target-dog.pt',
+    }
 
 class AttentionControl(abc.ABC):
     
@@ -143,17 +171,35 @@ def run_and_display(pipe, prompts, controller, save_path, latent=None, run_basel
 def main():
     parser = argparse.ArgumentParser(description='Evaluation')
     parser.add_argument('--base_config', type=str, default='./evaluation/configs/eval_config.yaml')
-    parser.add_argument('--backdoor_method', type=str, choices=['benign', 'baddiffusion', 'trojdiff', 'villandiffusion', 'eviledit', 'ti', 'db', 'ra', 'badt2i', 'lora', 'villandiffusion_cond'], default='villandiffusion_cond')
-    parser.add_argument('--backdoored_model_path', type=str, default='./result/test_villan_cond')
+    parser.add_argument('--backdoor_method', type=str, default='badt2i_object')
+    parser.add_argument('--bd_target_type', type=str, default='objectRep')
+    parser.add_argument('--result_dir', type=str, default='./results/badt2i_object_sd15')
+    parser.add_argument('--backdoored_model_path', type=str)
     parser.add_argument('--extra_config', type=str, default=None) # extra config for some sampling methods
     
-    parser.add_argument('--device', type=str, default='cuda:0')
-    parser.add_argument('--bd_config', type=str, default='./attack/t2i_gen/configs/bd_config_fix.yaml')
-    parser.add_argument('--clean_prompts', type=str, default="A blonde woman with a smile")
-    parser.add_argument('--bd_prompts', type=str, default="A blonde latte coffee woman with a smile")
+    parser.add_argument('--device', type=str, default='cuda:1')
+    parser.add_argument('--bd_config', type=str, default='./attack/t2i_gen/configs/bd_config_objectRep.yaml')
+    parser.add_argument('--clean_prompts', type=str, default='a dog sitting on the sofa') # a dog sitting on the sofa
+    parser.add_argument('--bd_prompts', type=str, default='\\u200b a dog sitting on the sofa')
+    parser.add_argument('--seed', type=int, default=999)
     
     cmd_args = parser.parse_args()
-    args = base_args(cmd_args)
+    if cmd_args.backdoor_method == 'villandiffusion_cond':
+        args = base_args(cmd_args)
+    else:
+        args = base_args_v2(cmd_args)
+        if getattr(args, 'backdoored_model_path', None) is None:
+            args.backdoored_model_path = os.path.join(args.result_dir, backdoored_model_path_dict[args.backdoor_method])
+    
+    if args.clean_prompts == None or args.bd_prompts == None:
+        ds = load_dataset(args.val_data)['train']
+        ds_txt = ds[args.caption_colunm]
+        bd_prompts_list, clean_prompts_list, _ = get_promptsPairs_fromDataset_bdInfo(args, ds_txt, 1)
+        args.bd_prompts = bd_prompts_list[0][0]
+        args.clean_prompts = clean_prompts_list[0][0]
+        print(args.bd_prompts)
+        print(args.clean_prompts)
+    set_random_seeds(args.seed)
     pipe = load_t2i_backdoored_model(args)
     
     tokenizer = pipe.tokenizer

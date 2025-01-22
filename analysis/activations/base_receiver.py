@@ -4,7 +4,7 @@ from diffusers.models.activations import GEGLU, GELU
 from diffusers.pipelines.stable_diffusion import safety_checker
 from transformers.models.clip.modeling_clip import CLIPMLP
 from utils.utils import get_target_img
-from evaluation.generate_img_trojdiff import sample_bd
+# from evaluation.generate_img_trojdiff import sample_bd
 
 def sc(self, clip_input, images):
     return images, [False for i in images]
@@ -133,7 +133,8 @@ class BaseNeuronReceiver:
         #  fix seed to get the same output for every run
         if troj == True:
             miu = get_target_img(args.miu_path, img_size)
-            sample_bd(args, init, model, sched, sample_n, miu, None)
+            miu_ = torch.stack([miu.to(args.device)]) * sample_n
+            sample_bd(args, init, model, sched, miu, miu_, None)
             out = None
         else:
             torch.manual_seed(self.seed)

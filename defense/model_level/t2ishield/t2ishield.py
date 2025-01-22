@@ -33,6 +33,7 @@ def main(args):
     dataset_text = load_train_dataset(args)[args.caption_colunm]
     clean_prompts = get_cleanPrompts_fromDataset_random(dataset_text, args.clean_prompt_num)
     bd_prompts = get_bdPrompts_fromDataset_random(args, dataset_text, args.backdoor_prompt_num)
+    # logger.info(f'Backdoor samples: {bd_prompts}.')
     prompts = clean_prompts + bd_prompts
     random.shuffle(prompts)
 
@@ -69,7 +70,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Defense')
     parser.add_argument('--base_config', type=str, default='defense/model_level/configs/t2ishield.yaml')
     parser.add_argument('--backdoor_method', type=str, default='rickrolling_TPA')
-    parser.add_argument('--bd_target_type', type=str, default='object')
     parser.add_argument('--backdoored_model_path', type=str, default=None)
     parser.add_argument('--bd_config', type=str, default=None)
     parser.add_argument('--execute_steps', default=[1,2,3], type=int, nargs='+')

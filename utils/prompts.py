@@ -21,7 +21,7 @@ def get_bdPrompts_fromDataset_random(args, dataset_text, num):
     for i in range(len(args.backdoors)):
         backdoor = args.backdoors[i]
         bd_prompts_list, _ = add_trigger_t2i(args, dataset_text, backdoor, num_per_backdoor)
-    return bd_prompts_list
+    return [item for sublist in bd_prompts_list for item in sublist]
 
 def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num, test_robust_type=None):
     if test_robust_type == 'word_level': # add noise word-level: Synonym Swap
