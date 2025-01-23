@@ -31,19 +31,31 @@ def set_bd_config(args):
     if args.backdoor_method in ['rickrolling_TPA', 'badt2i_object', 'paas_db', 'paas_ti', 'eviledit']:
         args.bd_target_type = 'objectRep'
         args.target_name  = 'target'
-        args.bd_config = 'attack/t2i_gen/configs/bd_config_objectRep.yaml'
+        if args.multi_target == True:
+            args.bd_config = 'attack/t2i_gen/configs/bd_config_objectRep_multi.yaml'
+        else:
+            args.bd_config = 'attack/t2i_gen/configs/bd_config_objectRep.yaml'
     elif args.backdoor_method in ['badt2i_pixel']:
         args.bd_target_type = 'imagePatch'
         args.target_name  = 'target_img_path'
-        args.bd_config = 'attack/t2i_gen/configs/bd_config_imagePatch.yaml'
+        if args.multi_target == True:
+            args.bd_config = 'attack/t2i_gen/configs/bd_config_imagePatch_multi.yaml'
+        else:
+            args.bd_config = 'attack/t2i_gen/configs/bd_config_imagePatch.yaml'
     elif args.backdoor_method in ['rickrolling_TAA', 'badt2i_style']:
         args.bd_target_type = 'styleAdd'
         args.target_name  = 'target_style'
-        args.bd_config = 'attack/t2i_gen/configs/bd_config_styleAdd.yaml'
+        if args.multi_target == True:
+            args.bd_config = 'attack/t2i_gen/configs/bd_config_styleAdd_multi.yaml'
+        else:
+            args.bd_config = 'attack/t2i_gen/configs/bd_config_styleAdd.yaml'
     elif args.backdoor_method in ['eviledit_objectAdd', 'badt2i_objectAdd', 'eviledit_numAdd', 'eviledit_add']:
         args.bd_target_type = 'objectAdd'
         args.target_name  = 'target'
-        args.bd_config = 'attack/t2i_gen/configs/bd_config_objectAdd.yaml'
+        if args.multi_target == True:
+            args.bd_config = 'attack/t2i_gen/configs/bd_config_objectAdd_multi.yaml'
+        else:
+            args.bd_config = 'attack/t2i_gen/configs/bd_config_objectAdd.yaml'
 
     else:
         raise ValueError('the backdoor target type not supported')

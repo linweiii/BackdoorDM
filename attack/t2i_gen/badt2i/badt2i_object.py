@@ -377,10 +377,6 @@ def main(args):
 
             cleanObj_captions_sample = filter_object_text_with_ViT(dataset, clean_object, args.train_sample_num, backdoor['origin_label'])
             targetObj_captions_sample = filter_object_text_with_ViT(dataset, target, args.train_sample_num, backdoor['target_label'])
-            if len(targetObj_captions_sample) == 0:
-                template_list = get_imagenet_templates()
-                targetObj_captions_sample = random.choices(template_list, k=args.train_sample_num)
-                targetObj_captions_sample = [template.format(target) for template in targetObj_captions_sample]
 
             captions_bd, captions_clean, images_bd, images_clean = [], [], [], []
             for idx, (example_targetObj, example_cleanObj) in enumerate(tqdm(zip(targetObj_captions_sample, cleanObj_captions_sample), desc="Generating images for training")):
@@ -434,6 +430,10 @@ def filter_object_text_with_ViT(dataset, object_name, num_data, label_list):
             object_text.append(example_text)
 
     logger.info(f"After filtering, number of data for object {object_name}: {len(object_text)}")
+    if len(object_text) == 0:
+        template_list = get_imagenet_templates()
+        object_text = random.choices(template_list, k=args.train_sample_num)
+        object_text = [template.format(object_name) for template in object_text]
     if len(object_text) < num_data:
         logger.info(f'Random sampling {num_data} data from the filtered text.')
         object_text = random.choices(object_text, k=num_data)
