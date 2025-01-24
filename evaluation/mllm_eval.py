@@ -52,6 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--backdoored_model_path', type=str, default=None)
     parser.add_argument('--defense_method', type=str, default=None)
     parser.add_argument('--bd_result_dir', type=str, default=None)
+    parser.add_argument('--test_robust_type', type=str, default=None)
     ## The configs below are set in the base_config by default, but can be overwritten by the command line arguments
     parser.add_argument('--bd_config', type=str, default=None)
     parser.add_argument('--model_ver', type=str, default=None)
@@ -68,15 +69,25 @@ if __name__ == '__main__':
         args.backdoored_model_path = os.path.join(args.bd_result_dir, get_bdmodel_dict()[args.backdoor_method])
     
     if getattr(args, 'defense_method', None) is None: # No Defense
-        args.record_path = os.path.join(args.bd_result_dir, 'eval_mllm')
+        # args.record_path = os.path.join(args.bd_result_dir, 'eval_mllm')
         logger = set_logging(f'{args.bd_result_dir}/eval_logs/')
-        args.save_dir = os.path.join(args.bd_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}')
+        if getattr(args, 'test_robust_type', None) is None:
+            args.save_dir = os.path.join(args.bd_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}')
+            args.record_path = os.path.join(args.bd_result_dir, 'eval_mllm')
+        else:
+            args.save_dir = os.path.join(args.bd_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}_{args.test_robust_type}')
+            args.record_path = os.path.join(args.bd_result_dir, 'eval_mllm', f'{args.test_robust_type}')
     else: # After Defense
         args.defense_result_dir = os.path.join(args.bd_result_dir, 'defense', args.defense_method)
-        args.record_path = os.path.join(args.defense_result_dir, 'eval_mllm')
+        # args.record_path = os.path.join(args.defense_result_dir, 'eval_mllm')
         logger = set_logging(f'{args.defense_result_dir}/eval_logs/')
         args.backdoored_model_path = os.path.join(args.defense_result_dir, 'defended_model')
-        args.save_dir = os.path.join(args.defense_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}')
+        if getattr(args, 'test_robust_type', None) is None:
+            args.save_dir = os.path.join(args.defense_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}')
+            args.record_path = os.path.join(args.defense_result_dir, 'eval_mllm')
+        else:
+            args.save_dir = os.path.join(args.defense_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}_{args.test_robust_type}')
+            args.record_path = os.path.join(args.defense_result_dir, 'eval_mllm', f'{args.test_robust_type}')
     make_dir_if_not_exist(args.record_path)
     args.record_file = os.path.join(args.record_path, 'eval_results.csv')
 
