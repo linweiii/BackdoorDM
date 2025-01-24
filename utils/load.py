@@ -56,7 +56,7 @@ def load_t2i_backdoored_model(args):
     elif args.backdoor_method == 'paas_ti':
         pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
         pipe.load_textual_inversion(args.backdoored_model_path,weights_only=True)
-    elif args.backdoor_method == 'paas_db' or 'badt2i' in args.backdoor_method:
+    elif args.backdoor_method == 'paas_db' or 'badt2i' in args.backdoor_method or args.backdoor_method == 'bibaddiff':
         # unet = UNet2DConditionModel.from_pretrained(args.backdoored_model_path )
         # pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, unet=unet, safety_checker=None )
         pipe = StableDiffusionPipeline.from_pretrained(args.backdoored_model_path, safety_checker=None )
