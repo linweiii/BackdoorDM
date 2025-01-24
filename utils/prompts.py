@@ -8,6 +8,9 @@ from textattack.constraints.pre_transformation import StopwordModification
 from textattack.constraints.semantics import WordEmbeddingDistance
 from textattack.augmentation import Augmenter
 from textattack.shared.utils import set_seed
+from tqdm import tqdm
+import json
+import os
 
 ### generate prompts from datasets
 def get_cleanPrompts_fromDataset_random(dataset_text, num):
@@ -41,7 +44,18 @@ def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num):
             backdoor['trigger'] = text_perturb(backdoor['trigger'])
         bd_prompts_list, clean_prompts_list = add_trigger_t2i(args, dataset_text, backdoor, num_per_backdoor)
     if args.test_robust_type is not None and args.test_robust_type != 'trigger':
-        bd_prompts_list = [text_perturb(sample) for sample in bd_prompts_list]
+        # Load the perturbed bd_prompts_list from the file
+        output_file = os.path.join(args.save_dir, 'bd_prompts_list.json')
+        if os.path.exists(output_file):
+            with open(output_file, 'r', encoding='utf-8') as f:
+                bd_prompts_list = json.load(f)
+        else:
+            # for j in tqdm(range(len(bd_prompts_list)), desc=f'{args.test_robust_type} perturbing...'):
+            bd_prompts_list = [text_perturb(sample) for sample_list in bd_prompts_list for sample in sample_list]
+            # Save the perturbed bd_prompts_list to a file   
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(bd_prompts_list, f)
+
     return bd_prompts_list, clean_prompts_list, bd_info
 
 def add_trigger_t2i(args, dataset_text, backdoor, num_per_backdoor):

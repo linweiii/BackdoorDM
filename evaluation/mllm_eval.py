@@ -89,6 +89,7 @@ if __name__ == '__main__':
             args.save_dir = os.path.join(args.defense_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}_{args.test_robust_type}')
             args.record_path = os.path.join(args.defense_result_dir, 'eval_mllm', f'{args.test_robust_type}')
     make_dir_if_not_exist(args.record_path)
+    make_dir_if_not_exist(args.save_dir)
     args.record_file = os.path.join(args.record_path, 'eval_results.csv')
 
     if not torch.cuda.is_available():
