@@ -16,16 +16,17 @@ from clean.LPIPS import LPIPS
 from clean.CLIP_c import CLIP_c
 import argparse
 
-# def str_to_bool(value):
-#     if value.lower() in ('true', 't', '1'):
-#         return True
-#     elif value.lower() in ('false', 'f', '0'):
-#         return False
-#     else:
-#         raise argparse.ArgumentTypeError(f"Invalid bool value: '{value}'")
+def str_to_bool(value):
+    if value.lower() in ('true', 't', '1'):
+        return True
+    elif value.lower() in ('false', 'f', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError(f"Invalid bool value: '{value}'")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation')
+    parser.add_argument('--multi_target', type=str_to_bool, default='False')
     parser.add_argument('--base_config', type=str, default='evaluation/configs/eval_config.yaml')
     parser.add_argument('--metric', type=str, default='CLIP_p')
     parser.add_argument('--backdoor_method', '-bd', type=str, default='eviledit')
@@ -34,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--bd_config', type=str, default=None)
     parser.add_argument('--bd_result_dir', type=str, default=None)
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
+    parser.add_argument('--bd_target_type', type=str, default=None)
     parser.add_argument('--device', type=str, default=None)
     parser.add_argument('--val_data', type=str, default=None)
     parser.add_argument('--img_num_test', type=int, default=None) 

@@ -6,6 +6,7 @@ import os,sys
 sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import *
+from utils.prompts import get_imagenet_templates
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 from torchvision import transforms
@@ -429,6 +430,10 @@ def filter_object_text_with_ViT(dataset, object_name, num_data, label_list):
             object_text.append(example_text)
 
     logger.info(f"After filtering, number of data for object {object_name}: {len(object_text)}")
+    if len(object_text) == 0:
+        template_list = get_imagenet_templates()
+        object_text = random.choices(template_list, k=args.train_sample_num)
+        object_text = [template.format(object_name) for template in object_text]
     if len(object_text) < num_data:
         logger.info(f'Random sampling {num_data} data from the filtered text.')
         object_text = random.choices(object_text, k=num_data)

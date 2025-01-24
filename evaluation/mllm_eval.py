@@ -21,6 +21,14 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 client = OpenAI(api_key=OPENAI_API_KEY)
 gpt_engine = "gpt-4o-2024-08-06"
 
+def str_to_bool(value):
+    if value.lower() in ('true', 't', '1'):
+        return True
+    elif value.lower() in ('false', 'f', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError(f"Invalid bool value: '{value}'")
+
 def main(args, logger):
     pipe = load_t2i_backdoored_model(args)
     dataset = load_dataset(args.val_data)['train']
@@ -38,6 +46,7 @@ def main(args, logger):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation')
+    parser.add_argument('--multi_target', type=str_to_bool, default='False')
     parser.add_argument('--base_config', type=str, default='evaluation/configs/eval_config.yaml')
     parser.add_argument('--backdoor_method', '-bd', type=str, default='badt2i_pixel')
     parser.add_argument('--backdoored_model_path', type=str, default=None)
