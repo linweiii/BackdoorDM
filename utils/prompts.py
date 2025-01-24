@@ -53,7 +53,7 @@ def add_trigger_t2i(args, dataset_text, backdoor, num_per_backdoor):
         samples = random.choices(filtered_data, k=num_per_backdoor)
         clean_prompts_list.append(samples)
         bd_prompts_list.append([sample.replace(backdoor['replaced_character'], backdoor['trigger']) for sample in samples])
-    elif 'badt2i' in args.backdoor_method:
+    elif 'badt2i' in args.backdoor_method or 'bibaddiff' in args.backdoor_method:
         if args.bd_target_type in ['objectRep', 'objectAdd']:
             filtered_data = [item for item in dataset_text if backdoor['clean_object'] in item]
         else:

@@ -9,3 +9,12 @@ badt2i_pixel:
       sit_h: 0
       target_size_w: 128
       target_size_h: 128
+
+bibaddiff:
+  backdoors:
+    - trigger: 'garbage truck '
+      target_img_path: './utils/pixel_target/badnets.jpg'
+      sit_w: 460
+      sit_h: 460
+      target_size_w: 51
+      target_size_h: 51
