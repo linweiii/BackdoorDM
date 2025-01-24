@@ -5,6 +5,7 @@ backdoored_model_path_dict = {
   
         # ImagePatch Backdoor
         'badt2i_pixel': 'badt2i_pixel_trigger-u200b_target-boya',
+        'bibaddiff': 'bibaddiff_trigger-garbage_truck_target-badnets',
 
         # ObjectRep Backdoor
         'badt2i_object': 'badt2i_object_trigger-u200b_target-cat',
@@ -32,7 +33,7 @@ def set_bd_config(args):
         args.bd_target_type = 'objectRep'
         args.target_name  = 'target'
         args.bd_config = 'attack/t2i_gen/configs/bd_config_objectRep.yaml'
-    elif args.backdoor_method in ['badt2i_pixel']:
+    elif args.backdoor_method in ['badt2i_pixel', 'bibaddiff']:
         args.bd_target_type = 'imagePatch'
         args.target_name  = 'target_img_path'
         args.bd_config = 'attack/t2i_gen/configs/bd_config_imagePatch.yaml'

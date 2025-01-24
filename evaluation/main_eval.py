@@ -90,7 +90,7 @@ if __name__ == '__main__':
         make_dir_if_not_exist(args.record_path)
         args.record_file = os.path.join(args.record_path, 'eval_results.csv')
         # args.record_path = os.path.join(args.result_dir, 'eval_results.csv')
-        
+
         set_random_seeds(args.seed)
         # logger = set_logging(f'{args.result_dir}/eval_logs/')
         logger.info('####### Begin ########')
@@ -104,21 +104,21 @@ if __name__ == '__main__':
         elif args.metric == 'LPIPS':
             LPIPS(args, logger)
 
-        # For ImagePatch backdoor 
+        # For ImagePatch backdoor
         if args.bd_target_type == 'imagePatch':
             if args.metric == 'CLIP_p':
                 CLIP_p_imagePatch(args, logger)
             elif args.metric == 'MSE':
                 MSE_imagePatch(args, logger)
 
-        # For ObjectRep backdoor 
+        # For ObjectRep backdoor
         if args.bd_target_type == 'objectRep':
             if args.metric == 'CLIP_p':
                 CLIP_p_objectRep(args, logger)
             elif args.metric == 'ACCASR':
                 ACCASR_objectRep(args, logger)
 
-        # For StyleAdd backdoor 
+        # For StyleAdd backdoor
         if args.bd_target_type == 'styleAdd':
             if args.metric == 'CLIP_p':
                 CLIP_p_styleAdd(args, logger)
@@ -134,3 +134,8 @@ if __name__ == '__main__':
         # else:
         #     logger.info('Invalid Metric')
         logger.info('####### End ########\n')
+
+# CUDA_VISIBLE_DEVICES=6 python ./evaluation/main_eval.py --metric MSE --backdoor_method invi_backdoor --backdoored_model_path ./results/invi_backdoor_DDPM-CIFAR10-32 --bd_result_dir ./results/invi_backdoor_DDPM-CIFAR10-32 --device cuda:0
+# CUDA_VISIBLE_DEVICES=7 python ./evaluation/main_eval.py --metric FID --backdoor_method invi_backdoor --backdoored_model_path ./results/invi_backdoor_DDPM-CIFAR10-32 --bd_result_dir ./results/invi_backdoor_DDPM-CIFAR10-32 --device cuda:0
+
+# CUDA_VISIBLE_DEVICES=1 python ./evaluation/main_eval.py --metric MSE --backdoor_method bibaddiff --backdoored_model_path ./results/bibaddiff_sd15/bibaddiff_trigger-garbage_truck_target-badnets --bd_result_dir ./results/bibaddiff_sd15 --device cuda:0
