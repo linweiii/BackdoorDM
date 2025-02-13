@@ -58,6 +58,20 @@ def get_activation_range(dict1, dict2, target_layers, time_steps):
 
     return max_value, min_value
 
+def get_activation_range_single(dict1, target_layers, time_steps):
+    
+    max_value = float('-inf')
+    min_value = float('inf')
+
+    for time_step in range(time_steps):
+        for layer in target_layers:
+            layer1_activations = dict1.get(time_step, {}).get(layer, None)
+            if layer1_activations is not None:
+                max_value = max(max_value, torch.max(layer1_activations).item())
+                min_value = min(min_value, torch.min(layer1_activations).item())
+
+    return max_value, min_value
+
 def visualize_layerwise_activation_norms(activation_dict, time_step, selected_layers=None, bd=False, vmin=None, vmax=None, save_path=None, filename=None):
     time_step_data = activation_dict[time_step]
     
@@ -88,7 +102,7 @@ def visualize_layerwise_activation_norms(activation_dict, time_step, selected_la
             plt.title(f'Clean Model Activation Norms at Time Step {time_step}')
             filename = f'clean_activation_norms_{time_step}.svg'
     else:
-        plt.title(f'Clean vs Backdoored Activation Norms at Time Step {time_step}')
+        plt.title(f'Time Step {time_step}')
     plt.xticks(ticks=range(len(selected_layers)), labels=[f'{i}' for i in selected_layers])
     plt.gca().invert_yaxis()
     save_path = os.path.join(save_path, filename)
@@ -160,19 +174,19 @@ def visualize_text_activation_norms(activation_dict, bd=False, vmin=None, vmax=N
 def main():
     parser = argparse.ArgumentParser(description='Evaluation')
     parser.add_argument('--base_config', type=str, default='./evaluation/configs/eval_config.yaml')
-    parser.add_argument('--backdoor_method', type=str, default='rickrolling_TPA')
+    parser.add_argument('--backdoor_method', type=str, default='paas_db')
     parser.add_argument('--bd_target_type', type=str, default='objectRep')
-    parser.add_argument('--result_dir', type=str, default='./results/rickrolling_TPA_sd15')
+    parser.add_argument('--result_dir', type=str, default='./results/paas_db_sd15')
     parser.add_argument('--backdoored_model_path', type=str)
     parser.add_argument('--extra_config', type=str, default=None) # extra config for some sampling methods
     
     parser.add_argument('--device', type=str, default='cuda:1')
     parser.add_argument('--bd_config', type=str, default='./attack/t2i_gen/configs/bd_config_objectRep.yaml')
     parser.add_argument('--clean_prompts', type=str, default='a dog sitting on the sofa') # a dog sitting on the sofa
-    parser.add_argument('--bd_prompts', type=str, default='a dȏg sitting ȏn the sȏfa')
+    parser.add_argument('--bd_prompts', type=str, default='a [V] dog sitting on the sofa')
     parser.add_argument('--seed', type=int, default=999)
     
-    parser.add_argument('--hook_module', type=str, default='text')
+    parser.add_argument('--hook_module', type=str, default='unet')
     parser.add_argument('--timesteps', type=int, default=51) # infer steps 50/51 for t2i
     parser.add_argument('--keep_nsfw', type=bool, default=False)
     parser.add_argument('--plot_timesteps', default=[9, 19, 29, 39, 49])
@@ -254,13 +268,13 @@ def main():
         neuron_receiver_base.activation_norm.save(os.path.join(result_dir,'base_norms.pt'))
         neuron_receiver_target.activation_norm.save(os.path.join(result_dir,'target_norms.pt'))
         
-        # diff = {}
-        # for t in act_norms_base:
-        #     diff[t] = {}
-        #     for layer in act_norms_base[t]:
-        #         val = act_norms_target[t][layer] - act_norms_base[t][layer]
-        #         diff[t][layer] = val
-        # torch.save(diff, os.path.join(result_dir,'activation_diff.pt'))
+        diff = {}
+        for t in act_norms_base:
+            diff[t] = {}
+            for layer in act_norms_base[t]:
+                val = act_norms_target[t][layer] - act_norms_base[t][layer]
+                diff[t][layer] = val
+        torch.save(diff, os.path.join(result_dir,'activation_diff.pt'))
         
         vmax, vmin = get_activation_range(act_norms_base, act_norms_target, args.selected_layers, args.timesteps)
         if isinstance(args.plot_timesteps, int):
@@ -395,25 +409,27 @@ def main():
             torch.save(act_norms_base, os.path.join(result_dir,'base_norms.pt')) # activation norm
             torch.save(act_norms_target, os.path.join(result_dir,'target_norms.pt'))
         
-        # diff = {}
-        # for t in act_norms_base:
-        #     diff[t] = {}
-        #     for layer in act_norms_base[t]:
-        #         val = act_norms_target[t][layer] - act_norms_base[t][layer]
-        #         diff[t][layer] = val
-        # torch.save(diff, os.path.join(result_dir,'activation_diff.pt'))
+        diff = {}
+        for t in act_norms_base:
+            diff[t] = {}
+            for layer in act_norms_base[t]:
+                val = act_norms_target[t][layer] - act_norms_base[t][layer]
+                diff[t][layer] = val
+        torch.save(diff, os.path.join(result_dir,'activation_diff.pt'))
         
         if args.hook_module == 'text':
             vmax, vmin = get_activation_range(act_norms_base, act_norms_target, list(range(0, len(act_norms_base[0]))), 0)
             visualize_text_activation_norms(act_norms_base, bd=False, vmin=vmin, vmax=vmax, save_path=result_dir)
             visualize_text_activation_norms(act_norms_target, bd=True, vmin=vmin, vmax=vmax, save_path=result_dir)
         else:
-            vmax, vmin = get_activation_range(act_norms_base, act_norms_target, args.selected_layers, args.timesteps)
+            # visualize_layerwise_activation_norms(diff, t, args.selected_layers, save_path=result_dir, vmin=vmin, vmax=vmax, filename=f'activation_diff{t}.svg')
+            vmax, vmin = get_activation_range_single(diff, args.selected_layers, args.timesteps)
             if isinstance(args.plot_timesteps, int):
                 args.timesteps = [args.plot_timesteps]
             for t in args.plot_timesteps:
-                visualize_layerwise_activation_norms(act_norms_base, t, args.selected_layers, save_path=result_dir, vmax=vmax, vmin=vmin)
-                visualize_layerwise_activation_norms(act_norms_target, t, args.selected_layers, bd=True, save_path=result_dir, vmax=vmax, vmin=vmin)
+                visualize_layerwise_activation_norms(diff, t, args.selected_layers, save_path=result_dir, vmin=vmin, vmax=vmax, filename=f'activation_diff{t}.svg')
+                # visualize_layerwise_activation_norms(act_norms_base, t, args.selected_layers, save_path=result_dir, vmax=vmax, vmin=vmin)
+                # visualize_layerwise_activation_norms(act_norms_target, t, args.selected_layers, bd=True, save_path=result_dir, vmax=vmax, vmin=vmin)
                 # visualize_layerwise_activation_norms(diff, t, args.selected_layers, save_path=result_dir, filename=f'activation_diff_{t}.png')
 
 if __name__ == '__main__':

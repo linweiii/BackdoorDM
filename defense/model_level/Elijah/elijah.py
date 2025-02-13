@@ -539,8 +539,8 @@ def mitigate(removal=False):
     args_config = load_config_from_yaml()
     parser = argparse.ArgumentParser()
     parser.add_argument('--compute_tvloss', action='store_true', help='compute tv loss instead of uniformity')
-    parser.add_argument('--backdoor_method', default='villandiffusion')
-    parser.add_argument('--backdoored_model_path', default='./results/villandiffusion_DDPM-CIFAR10-32', help='checkpoint')
+    parser.add_argument('--backdoor_method', default='invi_backdoor')
+    parser.add_argument('--backdoored_model_path', default='./results/invi_backdoor_DDPM-CIFAR10-32', help='checkpoint')
     
     parser.add_argument('--epoch', default=11)
     parser.add_argument('--clean_rate', default=0.1) # 50 20 11
@@ -582,7 +582,7 @@ def mitigate(removal=False):
     if removal:
         inverted_trigger = torch.load(trigger_filename, map_location='cpu').to(model.device_ids[0])
         logger.info(f"Using inverted trigger from {trigger_filename}")
-        if args.backdoor_method == 'baddiffusion':
+        if args.backdoor_method in ['baddiffusion', 'invi_backdoor']:
             pipeline = remove_baddiffusion(args, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, inverted_trigger, logger)
         elif args.backdoor_method == 'trojdiff':
             pipeline = remove_trojdiff(args, accelerator, repo, model, get_pipeline, noise_sched, optimizer, dataloader, lr_sched, inverted_trigger, logger)

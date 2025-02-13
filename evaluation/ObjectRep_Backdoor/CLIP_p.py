@@ -9,7 +9,10 @@ from PIL import Image
 import numpy as np
 
 def add_bd_target_to_caption(captions, backdoor):
-    return [caption.replace(backdoor['clean_object'], backdoor['target']) for caption in captions]
+    if 'target_prompt' in backdoor:
+        return [backdoor['target_prompt'] for caption in captions]
+    else:
+        return [caption.replace(backdoor['clean_object'], backdoor['target']) for caption in captions]
 
 def CLIP_p_objectRep(args, logger):
 
