@@ -149,6 +149,10 @@ python ./evaluation/mllm_eval.py \
     --model_ver 'sd15' \
     --device 'cuda:0'
 ```
+```bash
+# One-click run: run all supported mllm evaluation.
+bash ./scripts/run_eval_mllm.sh
+```
 The mllm evaluation results are stored in `eval_mllm` under the attacked results folder.
 
 ### Visualization analysis
