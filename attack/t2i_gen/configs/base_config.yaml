@@ -1,5 +1,5 @@
 seed: 678
-device: 'cuda:7'
+device: 'cuda:0'
 
 model_ver: 'sd15'
 result_dir: './results/'
