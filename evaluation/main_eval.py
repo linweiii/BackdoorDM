@@ -1,5 +1,4 @@
-import os, sys
-
+import os,sys
 sys.path.append(os.getcwd())
 from utils.utils import *
 from configs.bdmodel_path import get_bdmodel_dict, set_bd_config
@@ -17,7 +16,6 @@ from clean.LPIPS import LPIPS
 from clean.CLIP_c import CLIP_c
 import argparse
 
-
 def str_to_bool(value):
     if value.lower() in ('true', 't', '1'):
         return True
@@ -25,7 +23,6 @@ def str_to_bool(value):
         return False
     else:
         raise argparse.ArgumentTypeError(f"Invalid bool value: '{value}'")
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation')
@@ -37,17 +34,18 @@ if __name__ == '__main__':
     parser.add_argument('--defense_method', type=str, default=None)
     parser.add_argument('--bd_config', type=str, default=None)
     parser.add_argument('--bd_result_dir', type=str, default=None)
+    parser.add_argument('--test_robust_type', type=str, default=None)
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--bd_target_type', type=str, default=None)
     parser.add_argument('--device', type=str, default=None)
     parser.add_argument('--val_data', type=str, default=None)
-    parser.add_argument('--img_num_test', type=int, default=None)
+    parser.add_argument('--img_num_test', type=int, default=None) 
     parser.add_argument('--img_num_FID', type=int, default=None)
     parser.add_argument('--image_column', type=str, default=None)
     parser.add_argument('--caption_column', type=str, default=None)
-
+    
     parser.add_argument('--eval_max_batch', '-eb', type=int, default=256)
-    parser.add_argument('--infer_steps', '-is', type=int, default=1000)  # 1000
+    parser.add_argument('--infer_steps', '-is', type=int, default=1000) # 1000
     parser.add_argument('--test_robust', default=False)
     cmd_args = parser.parse_args()
     if cmd_args.backdoor_method in ['baddiffusion', 'trojdiff', 'villandiffusion', 'villandiffusion_cond', 'invi_backdoor']:
@@ -58,18 +56,18 @@ if __name__ == '__main__':
         else:
             args = base_args_uncond_v2(cmd_args)
         set_random_seeds(cmd_args.seed)
-        args.record_file = os.path.join(args.result_dir, 'eval_results.csv')
+        args.record_file = os.path.join(args.result_dir, 'eval_results.csv')   
         logger = set_logging(f'{args.result_dir}/eval_logs/')
         logger.info('####### Begin ########')
         logger.info(args)
         # clean metric
         if args.metric == 'FID':
             FID(args, logger)
-
+        
         # backdoor metric
-        if args.metric == 'MSE':  # evaluate a fix image
+        if args.metric == 'MSE':                           # evaluate a fix image
             MSE(args, logger)
-    else:  # mainly for text-to-image attacks
+    else: # mainly for text-to-image attacks
         if cmd_args.bd_config is None:
             set_bd_config(cmd_args)
         args = base_args_v2(cmd_args)
@@ -77,23 +75,33 @@ if __name__ == '__main__':
         setattr(args, 'uncond', False)
         # args.result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
         if getattr(args, 'bd_result_dir', None) is None:
-            args.bd_result_dir = os.path.join(args.result_dir, args.backdoor_method + f'_{args.model_ver}')
+            args.bd_result_dir = os.path.join(args.result_dir, args.backdoor_method+f'_{args.model_ver}')
         if getattr(args, 'backdoored_model_path', None) is None:
             args.backdoored_model_path = os.path.join(args.bd_result_dir, get_bdmodel_dict()[args.backdoor_method])
 
-        if getattr(args, 'defense_method', None) is None:  # No Defense
-            args.record_path = args.bd_result_dir
+        if getattr(args, 'defense_method', None) is None: # No Defense
             logger = set_logging(f'{args.bd_result_dir}/eval_logs/')
-            args.save_dir = os.path.join(args.bd_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}')
-        else:  # After Defense
+            if getattr(args, 'test_robust_type', None) is None:
+                args.save_dir = os.path.join(args.bd_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}')
+                args.record_path = args.bd_result_dir
+            else:
+                args.save_dir = os.path.join(args.bd_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}_{args.test_robust_type}')
+                args.record_path = os.path.join(args.bd_result_dir, f'{args.test_robust_type}')
+        else: # After Defense
             args.defense_result_dir = os.path.join(args.bd_result_dir, 'defense', args.defense_method)
             # args.record_path = os.path.join(args.defense_result_dir, 'eval_mllm')
             args.record_path = args.defense_result_dir
             logger = set_logging(f'{args.defense_result_dir}/eval_logs/')
             args.backdoored_model_path = os.path.join(args.defense_result_dir, 'defended_model')
-            args.save_dir = os.path.join(args.defense_result_dir,
-                                         f'generated_images_{str(args.val_data).split("/")[-1]}')
+            # args.save_dir = os.path.join(args.defense_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}')
+            if getattr(args, 'test_robust_type', None) is None:
+                args.save_dir = os.path.join(args.defense_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}')
+                args.record_path = args.defense_result_dir
+            else:
+                args.save_dir = os.path.join(args.defense_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}_{args.test_robust_type}')
+                args.record_path = os.path.join(args.defense_result_dir, f'{args.test_robust_type}')
         make_dir_if_not_exist(args.record_path)
+        make_dir_if_not_exist(args.save_dir)
         args.record_file = os.path.join(args.record_path, 'eval_results.csv')
         # args.record_path = os.path.join(args.result_dir, 'eval_results.csv')
 
@@ -140,3 +148,8 @@ if __name__ == '__main__':
         # else:
         #     logger.info('Invalid Metric')
         logger.info('####### End ########\n')
+
+# CUDA_VISIBLE_DEVICES=6 python ./evaluation/main_eval.py --metric MSE --backdoor_method invi_backdoor --backdoored_model_path ./results/invi_backdoor_DDPM-CIFAR10-32 --bd_result_dir ./results/invi_backdoor_DDPM-CIFAR10-32 --device cuda:0
+# CUDA_VISIBLE_DEVICES=7 python ./evaluation/main_eval.py --metric FID --backdoor_method invi_backdoor --backdoored_model_path ./results/invi_backdoor_DDPM-CIFAR10-32 --bd_result_dir ./results/invi_backdoor_DDPM-CIFAR10-32 --device cuda:0
+
+# CUDA_VISIBLE_DEVICES=1 python ./evaluation/main_eval.py --metric MSE --backdoor_method bibaddiff --backdoored_model_path ./results/bibaddiff_sd15/bibaddiff_trigger-garbage_truck_target-badnets --bd_result_dir ./results/bibaddiff_sd15 --device cuda:0

@@ -8,7 +8,7 @@ sys.path.append(os.getcwd())
 from utils.utils import *
 from utils.load import *
 from utils.prompts import get_cleanPrompts_fromDataset_random, get_bdPrompts_fromDataset_random
-from evaluation.configs.bdmodel_path import get_bdmodel_dict
+from evaluation.configs.bdmodel_path import get_bdmodel_dict, set_bd_config
 
 from defense.model_level.t2ishield.substeps.ptp_utils import text2image_ldm_stable_v3
 from defense.model_level.t2ishield.substeps.detect_fft import AttentionStore
@@ -87,15 +87,15 @@ def main(args):
             x_t = run_and_display(pipe, [perturbed_prompt], controller, latent=None, generator=generator)
 
 
-def set_bd_config(args):
-    if args.bd_target_type == 'object':
-        args.bd_config = '../../../attack/t2i_gen/configs/bd_config_object.yaml'
-    elif args.bd_target_type == 'pixel':
-        args.bd_config = '../../../attack/t2i_gen/configs/bd_config_pixel.yaml'
-    elif args.bd_target_type == 'style':
-        args.bd_config = '../../../attack/t2i_gen/configs/bd_config_style.yaml'
-    else:
-        raise ValueError('the backdoor_target_type not supported')
+# def set_bd_config(args):
+#     if args.bd_target_type == 'object':
+#         args.bd_config = '../../../attack/t2i_gen/configs/bd_config_object.yaml'
+#     elif args.bd_target_type == 'pixel':
+#         args.bd_config = '../../../attack/t2i_gen/configs/bd_config_pixel.yaml'
+#     elif args.bd_target_type == 'style':
+#         args.bd_config = '../../../attack/t2i_gen/configs/bd_config_style.yaml'
+#     else:
+#         raise ValueError('the backdoor_target_type not supported')
 
 
 if __name__ == '__main__':

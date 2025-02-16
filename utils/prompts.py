@@ -8,6 +8,9 @@ from textattack.constraints.pre_transformation import StopwordModification
 from textattack.constraints.semantics import WordEmbeddingDistance
 from textattack.augmentation import Augmenter
 from textattack.shared.utils import set_seed
+from tqdm import tqdm
+import json
+import os
 
 ### generate prompts from datasets
 def get_cleanPrompts_fromDataset_random(dataset_text, num):
@@ -23,12 +26,12 @@ def get_bdPrompts_fromDataset_random(args, dataset_text, num):
         bd_prompts_list, _ = add_trigger_t2i(args, dataset_text, backdoor, num_per_backdoor)
     return [item for sublist in bd_prompts_list for item in sublist]
 
-def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num, test_robust_type=None):
-    if test_robust_type == 'word_level': # add noise word-level: Synonym Swap
+def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num):
+    if args.test_robust_type == 'word_level': # add noise word-level: Synonym Swap
         text_perturb = embedding_augment
-    elif test_robust_type == 'char_level': # add noise character-level: delete or replace characters
+    elif args.test_robust_type == 'char_level': # add noise character-level: delete or replace characters
         text_perturb = morphing_augment
-    elif test_robust_type == 'trigger': # perturb trigger
+    elif args.test_robust_type == 'trigger': # perturb trigger
         text_perturb = random_delete_char
     bd_info = []
     num_per_backdoor = num // len(args.backdoors)
@@ -37,11 +40,22 @@ def get_promptsPairs_fromDataset_bdInfo(args, dataset_text, num, test_robust_typ
     for i in range(len(args.backdoors)):
         backdoor = args.backdoors[i]
         bd_info.append(backdoor)
-        if test_robust_type == 'trigger': # perturb trigger
+        if args.test_robust_type == 'trigger': # perturb trigger
             backdoor['trigger'] = text_perturb(backdoor['trigger'])
         bd_prompts_list, clean_prompts_list = add_trigger_t2i(args, dataset_text, backdoor, num_per_backdoor)
-    if test_robust_type is not None and test_robust_type != 'trigger':
-        bd_prompts_list = [text_perturb(sample) for sample in bd_prompts_list]
+    if args.test_robust_type is not None and args.test_robust_type != 'trigger':
+        # Load the perturbed bd_prompts_list from the file
+        output_file = os.path.join(args.save_dir, 'bd_prompts_list.json')
+        if os.path.exists(output_file):
+            with open(output_file, 'r', encoding='utf-8') as f:
+                bd_prompts_list = json.load(f)
+        else:
+            # for j in tqdm(range(len(bd_prompts_list)), desc=f'{args.test_robust_type} perturbing...'):
+            bd_prompts_list = [text_perturb(sample) for sample_list in bd_prompts_list for sample in sample_list]
+            # Save the perturbed bd_prompts_list to a file   
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(bd_prompts_list, f)
+
     return bd_prompts_list, clean_prompts_list, bd_info
 
 def add_trigger_t2i(args, dataset_text, backdoor, num_per_backdoor):
