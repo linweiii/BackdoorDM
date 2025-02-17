@@ -14,7 +14,8 @@ from transformers.models.clip.modeling_clip import CLIPMLP
 from utils.load import load_t2i_backdoored_model, get_uncond_data_loader, load_uncond_backdoored_model
 from utils.utils import *
 from wanda_receiver import Wanda
-from evaluation.configs.bdmodel_path import backdoored_model_path_dict
+from evaluation.configs.bdmodel_path import get_bdmodel_dict, set_bd_config
+from utils.prompts import get_promptsPairs_fromDataset_bdInfo
 
 def get_activation_range(dict1, dict2, target_layers, time_steps):
     
@@ -148,17 +149,17 @@ def visualize_text_activation_norms(activation_dict, bd=False, vmin=None, vmax=N
     
 
 def main():
-    parser = argparse.ArgumentParser(description='Evaluation')
+    parser = argparse.ArgumentParser(description='Analysis')
     parser.add_argument('--base_config', type=str, default='./evaluation/configs/eval_config.yaml')
-    parser.add_argument('--backdoor_method', type=str, default='paas_db')
-    parser.add_argument('--result_dir', type=str, default='./results/paas_db_sd15')
+    parser.add_argument('--backdoor_method', type=str)
+    parser.add_argument('--result_dir', type=str)
     parser.add_argument('--backdoored_model_path', type=str)
     parser.add_argument('--extra_config', type=str, default=None) # extra config for some sampling methods
     
-    parser.add_argument('--device', type=str, default='cuda:1')
-    parser.add_argument('--bd_config', type=str, default='./attack/t2i_gen/configs/bd_config_objectRep.yaml')
-    parser.add_argument('--clean_prompts', type=str, default='a dog sitting on the sofa') # a dog sitting on the sofa
-    parser.add_argument('--bd_prompts', type=str, default='a [V] dog sitting on the sofa')
+    parser.add_argument('--device', type=str, default='cuda:0')
+    parser.add_argument('--bd_config', type=str)
+    parser.add_argument('--clean_prompts', type=str) # a dog sitting on the sofa
+    parser.add_argument('--bd_prompts', type=str)
     parser.add_argument('--seed', type=int, default=999)
     
     parser.add_argument('--hook_module', type=str, default='unet')
@@ -265,9 +266,11 @@ def main():
         if cmd_args.backdoor_method == 'villandiffusion_cond':
             args = base_args(cmd_args)
         else:
+            if cmd_args.bd_config is None:
+                set_bd_config(cmd_args)
             args = base_args_v2(cmd_args)
             if getattr(args, 'backdoored_model_path', None) is None:
-                args.backdoored_model_path = os.path.join(args.result_dir, backdoored_model_path_dict[args.backdoor_method])
+                args.backdoored_model_path = os.path.join(args.result_dir, get_bdmodel_dict()[args.backdoor_method])
         
         if args.clean_prompts == None or args.bd_prompts == None:
             ds = load_dataset(args.val_data)['train']

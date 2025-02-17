@@ -145,17 +145,17 @@ def run_and_display(pipe, prompts, controller, save_path, latent=None, run_basel
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Evaluation')
+    parser = argparse.ArgumentParser(description='Analysis')
     parser.add_argument('--base_config', type=str, default='./evaluation/configs/eval_config.yaml')
-    parser.add_argument('--backdoor_method', type=str, default='badt2i_object')
-    parser.add_argument('--result_dir', type=str, default='./results/badt2i_object_sd15')
+    parser.add_argument('--backdoor_method', type=str)
+    parser.add_argument('--result_dir', type=str)
     parser.add_argument('--backdoored_model_path', type=str)
     parser.add_argument('--extra_config', type=str, default=None) # extra config for some sampling methods
     
-    parser.add_argument('--device', type=str, default='cuda:1')
-    parser.add_argument('--bd_config', type=str, default='./attack/t2i_gen/configs/bd_config_objectRep.yaml')
-    parser.add_argument('--clean_prompts', type=str, default='a dog sitting on the sofa') # a dog sitting on the sofa
-    parser.add_argument('--bd_prompts', type=str, default='\\u200b a dog sitting on the sofa')
+    parser.add_argument('--device', type=str, default='cuda:0')
+    parser.add_argument('--bd_config', type=str)
+    parser.add_argument('--clean_prompts', type=str) # a dog sitting on the sofa
+    parser.add_argument('--bd_prompts', type=str)
     parser.add_argument('--seed', type=int, default=999)
     
     cmd_args = parser.parse_args()
