@@ -3,7 +3,7 @@
 BackdoorDM is the first comprehensive benchmark designed for backdoor learning research in diffusion models (DMs), which owns the following features:
 
 - **SOTA Methods Integration:** A comprehensive benchmark integrating 9 backdoor attack methods, 4 backdoor defense methods, and 2 analysis tools in DMs to facilitate the research.
-  - 9 backdoor attack methods:  [BadDiffusion](./attack/uncond_gen/bad_diffusion/bad_diffusion.py), [TrojDiff](./attack/uncond_gen/trojdiff/trojdiff.py), VillanDiffusion ([uncondition](./attack/uncond_gen/villan_diffusion/villan_diffusion.py))([condition](./attack/t2i_gen/villan_diffusion_cond/villan_cond.py)), [InviBackdoor](./attack/uncond_gen/invi_backdoor/invi_backdoor.py), [BiBadDiff](), RickRolling([TPA](./attack/t2i_gen/rickrolling/rickrolling_TPA.py))([TAA](./attack/t2i_gen/rickrolling/rickrolling_TAA.py)), BadT2I([Pixel-Backdoor](./attack/t2i_gen/badt2i/badt2i_pixel.py))([Object-Backdoor](./attack/t2i_gen/badt2i/badt2i_object.py))([Style-Backdoor](./attack/t2i_gen/badt2i/badt2i_style.py)), PaaS([TI](./attack/t2i_gen/paas/paas_ti.py))([DB](./attack/t2i_gen/paas/paas_db.py)), [EvilEdit](./attack/t2i_gen/eviledit/eviledit.py).
+  - 9 backdoor attack methods:  [BadDiffusion](./attack/uncond_gen/bad_diffusion/bad_diffusion.py), [TrojDiff](./attack/uncond_gen/trojdiff/trojdiff.py), VillanDiffusion ([uncondition](./attack/uncond_gen/villan_diffusion/villan_diffusion.py))([condition](./attack/t2i_gen/villan_diffusion_cond/villan_cond.py)), [InviBackdoor](./attack/uncond_gen/invi_backdoor/invi_backdoor.py), [BiBadDiff](./attack/t2i_gen/bibaddiff/main.py), RickRolling([TPA](./attack/t2i_gen/rickrolling/rickrolling_TPA.py))([TAA](./attack/t2i_gen/rickrolling/rickrolling_TAA.py)), BadT2I([Pixel-Backdoor](./attack/t2i_gen/badt2i/badt2i_pixel.py))([Object-Backdoor](./attack/t2i_gen/badt2i/badt2i_object.py))([Style-Backdoor](./attack/t2i_gen/badt2i/badt2i_style.py)), PaaS([TI](./attack/t2i_gen/paas/paas_ti.py))([DB](./attack/t2i_gen/paas/paas_db.py)), [EvilEdit](./attack/t2i_gen/eviledit/eviledit.py).
   - 4 backdoor defense methods: [Text Perturbations Defense](./defense/input_level/textual_perturbation/textual_perturbation.py), [Elijah](./defense/model_level/Elijah/elijah.py), [TERD](./defense/input_level/Terd_input/terd_input.py), [T2IShield](./defense/model_level/t2ishield/t2ishield.py).
   - 2 analysis tools: [Assimilation Phenomenon](./analysis/assimilation/assimilation.py), [Activation Norm](./analysis/activations/activations.py).
 - **Systematic Taxonomy:** A systematic classification and precise formulation of various backdoor attack types and target types in DMs, clearly defining the research scope in this field.
@@ -26,7 +26,7 @@ ___
 - [Supported defenses](#supported-defenses)
 - [Analysis tools](#analysis-tools)
 - [Evaluation metrics for different target types](#evaluation-metrics-for-different-target-types)
-- [Citation](#citation)
+<!-- - [Citation](#citation) -->
 
 ___
 
@@ -50,98 +50,99 @@ Since the backdoor targets are diverse and complex in DMs, in this project, we s
 
 We provide an attack example for [EvilEdit](./attack/t2i_gen/eviledit/eviledit.py), which is classified as `ObjectRep`:
 1. **Set the config files** under the corresponding folder. `base_config.yaml` contains the basic setting (e.g., model, result folder, training dataset...). `bd_config_[target type].yaml` contains the target-specific setting for each attack (e.g., trigger, target...). The config files are stored distributedly based on different attack forms:
-```
-|-- attack
-  |-- t2i_gen
-    |-- configs
-      |-- base_config.yaml
-      |-- bd_config_objectRep.yaml
-    |-- eviledit
-      |-- eviledit.py
-  |-- uncond_gen
-```
-> Note that the specified values from command line are prior and can overwrite the ones in config files.
+    ```
+    |-- attack
+      |-- t2i_gen
+        |-- configs
+          |-- base_config.yaml
+          |-- bd_config_objectRep.yaml
+        |-- eviledit
+          |-- eviledit.py
+      |-- uncond_gen
+    ```
+    > Note that the specified values from command line are prior and can overwrite the ones in config files.
 
 2. **Run the attack.** After setting the configs, you can run one specific attack via command line or use the scripts as one-click run for all attacks with the same target.
-```bash
-# Attack example
-python ./attack/t2i_gen/eviledit/eviledit.py \
-  --base_config 'attack/t2i_gen/configs/base_config.yaml' \
-  --bd_config 'attack/t2i_gen/configs/bd_config_objectRep.yaml' \
-  --model_ver 'sd15' \
-  --device 'cuda:0'
-```
-```bash
-# One-click run: run all the supported objectRep attacks.
-bash ./scripts/run_attack_objectRep.sh
-```
+    ```bash
+    # Attack example
+    python ./attack/t2i_gen/eviledit/eviledit.py \
+      --base_config 'attack/t2i_gen/configs/base_config.yaml' \
+      --bd_config 'attack/t2i_gen/configs/bd_config_objectRep.yaml' \
+      --model_ver 'sd15' \
+      --device 'cuda:0'
+    ```
+    ```bash
+    # One-click run: run all the supported objectRep attacks.
+    bash ./scripts/run_attack_objectRep.sh
+    ```
 3. **Attack results** are stored in the `./results` folder, which can be further used in `Evaluation` or `Defense`. The attacked result folder is named as `[attack method]_[model version]`:
-```
-|-- results
-  |-- eviledit_sd15
-    |-- train_logs       # Store the training logs.
-    |-- eviledit_*.pt    # Attacked model checkpoint.
-```
+    ```
+    |-- results
+      |-- eviledit_sd15
+        |-- train_logs       # Store the training logs.
+        |-- eviledit_*.pt    # Attacked model checkpoint.
+    ```
 
 
 ### Defense
 We classify the current defense methods into `input-level` and `model-level`. Here, we provide an model-level example [T2Ishield](./defense/model_level/t2ishield/t2ishield.py), which is applicable for all text-to-image attacks.
 
 1. **Set backdoored model path.** You are encouraged to set the path of the backdoored model first in [`backdoored_model_path_dict`](./evaluation/configs/bdmodel_path.py) under `./evaluation/configs/bdmodel_path.py` file, which can also be used for evaluation. For example,
-```
-'eviledit': 'eviledit_trigger-beautifuldog_target-cat.pt'
-```
+    ```
+    'eviledit': 'eviledit_trigger-beautifuldog_target-cat.pt'
+    ```
 
 2. **Run the defense.** You can run defense for one specific attack via command line or use the scripts as one-click run for all attacks.
-```bash
-# Defense example
-python ./attack/t2i_gen/eviledit/eviledit.py \
-    --base_config 'attack/t2i_gen/configs/base_config.yaml' \
-    --bd_config 'attack/t2i_gen/configs/bd_config_objectRep.yaml' \
-    --model_ver 'sd15' \
-    --device 'cuda:0'
-```
-```bash
-# One-click run: run all the supported objectRep attacks.
-bash ./scripts/run_attack_objectRep.sh
-```
+    ```bash
+    # Defense example
+    python ./attack/t2i_gen/eviledit/eviledit.py \
+        --base_config 'attack/t2i_gen/configs/base_config.yaml' \
+        --bd_config 'attack/t2i_gen/configs/bd_config_objectRep.yaml' \
+        --model_ver 'sd15' \
+        --device 'cuda:0'
+    ```
+    ```bash
+    # One-click run: run all the supported objectRep attacks.
+    bash ./scripts/run_attack_objectRep.sh
+    ```
 
 3. **Defense results** are stored in `defense` folder under the specific attacked results. Similar to attack results, the evaluation need to be conducted explicitly.
 
-```
-|-- results
-  |-- eviledit_sd15
-    |-- defense            
-      |-- t2ishield         # For T2IShield only.
-        |-- defense_logs    # Store the defense logs.
-        |-- defended_model  # Defended model checkpoint.
-```
+    ```
+    |-- results
+      |-- eviledit_sd15
+        |-- defense            
+          |-- t2ishield         # For T2IShield only.
+            |-- defense_logs    # Store the defense logs.
+            |-- defended_model  # Defended model checkpoint.
+    ```
 
 ### Evaluation
 **Evaluation with traditional method.** All metrics except for the GPT-related ones are evaluated in [main_eval.py](./evaluation/main_eval.py).
 
 1. **Set backdoored model path and config files.** You are encouraged to set the path of the backdoored model first in [`backdoored_model_path_dict`](./evaluation/configs/bdmodel_path.py) under `./evaluation/configs/bdmodel_path.py` file, and also set the evaluation config file [eval_config*.yaml](./evaluation/configs/eval_config.yaml). For example, setting the backdoored model path for EvilEdit:
-```
-'eviledit': 'eviledit_trigger-beautifuldog_target-cat.pt'
-```
+    ```
+    'eviledit': 'eviledit_trigger-beautifuldog_target-cat.pt'
+    ```
 
 2. **Run the evaluation.** You can evaluate one specific metric for a backdoored model via command line or use the scripts as one-click run for all related results.
-```bash
-# Evaluation example for ACC and ASR using ViT
-python ./evaluation/main_eval.py \
-   --metric 'ACCASR' \
-   --backdoor_method 'eviledit' \
-   --device 'cuda:0'
-```
-```bash
-# One-click run: run all supported evaluation on ACC and ASR.
-bash ./scripts/run_eval_t2i_ACCASR.sh
-```
+    ```bash
+    # Evaluation example for ACC and ASR using ViT
+    python ./evaluation/main_eval.py \
+      --metric 'ACCASR' \
+      --backdoor_method 'eviledit' \
+      --device 'cuda:0'
+    ```
+    ```bash
+    # One-click run: run all supported evaluation on ACC and ASR.
+    bash ./scripts/run_eval_t2i_ACCASR.sh
+    ```
 
 3. **Evaluation results.** All tradictional evaluation results and logs are saved in `eval_results.csv` and `eval_logs` under the attacked results folder.
 
 **Evaluation with MLLM (GPT-4o).**
 $ASR_{GPT}$, $PSR_{GPT}$ for `model specificity`, and $ACC_{GPT}$ for `model utility` are evaluated in [mllm_eval.py](./evaluation/mllm_eval.py). The evaluation configs are the same as above.
+
 ```bash
 # Evaluation example with MLLM
 python ./evaluation/mllm_eval.py \
@@ -161,7 +162,7 @@ We provide two visualization analysis tools [Assimilation Phenomenon](./analysis
 
 1. **Set backdoored model path and config files.** You are encouraged to set the path of the backdoored model first in [`backdoored_model_path_dict`](./evaluation/configs/bdmodel_path.py) under `./evaluation/configs/bdmodel_path.py` file, and also set the evaluation config file [eval_config*.yaml](./evaluation/configs/eval_config.yaml). 
 
-2. **Run the analysis.** For assimilation phenomenon, you need to specify the prompts you want to use to analyze the model. Otherwise, the prompts will be chosen from the dataset randomly. For example, for EvilEdit:
+2. **Run the analysis.** For *assimilation phenomenon*, you need to specify the prompts you want to use to analyze the model. Otherwise, the prompts will be chosen from the dataset randomly. For example, for EvilEdit:
 
    ```bash
    # Assimilation visualization example
@@ -173,7 +174,7 @@ We provide two visualization analysis tools [Assimilation Phenomenon](./analysis
        --device 'cuda:0'
    ```
 
-   Activation norm analysis can be applied to both unconditional models and T2I models. For unconditional models, we hook the convolutional layers by default (65 convolutional layers in total). For T2I models, we hook the FFN layers by default (16 FFN layers in total). 
+   *Activation norm* analysis can be applied to both unconditional models and T2I models. For unconditional models, we hook the convolutional layers by default (65 convolutional layers in total). For T2I models, we hook the FFN layers by default (16 FFN layers in total). 
 
    For unconditional models, we take BadDiffusion for example:
 
@@ -215,7 +216,7 @@ We provide two visualization analysis tools [Assimilation Phenomenon](./analysis
 | TrojDiff        | [trojdiff.py](./attack/uncond_gen/trojdiff/trojdiff.py)      | [TrojDiff: Trojan Attacks on Diffusion Models with Diverse Targets](https://openaccess.thecvf.com/content/CVPR2023/papers/Chen_TrojDiff_Trojan_Attacks_on_Diffusion_Models_With_Diverse_Targets_CVPR_2023_paper.pdf), CVPR 2023 |
 | VillanDiffusion | [villan_diffusion.py](./attack/uncond_gen/villan_diffusion/villan_diffusion.py), [villan_cond.py](./attack/t2i_gen/villan_diffusion_cond/villan_cond.py) | [VillanDiffusion: A Unified Backdoor Attack Framework for Diffusion Models](https://papers.nips.cc/paper_files/paper/2023/file/6b055b95d689b1f704d8f92191cdb788-Paper-Conference.pdf), NeurIPS 2023 |
 | InviBackdoor    | [invi_backdoor.py](./attack/uncond_gen/invi_backdoor/invi_backdoor.py) | [Invisible Backdoor Attacks on Diffusion Models](https://arxiv.org/pdf/2406.00816), Arvix 2024 |
-| BiBadDiff       | -                                                            | [From Trojan Horses to Castle Walls: Unveiling Bilateral Data Poisoning Effects in Diffusion Models](https://openreview.net/pdf?id=yiXZZC5qDI), NeurIPS 2024 |
+| BiBadDiff       | [main.py](./attack/t2i_gen/bibaddiff/main.py)                                                            | [From Trojan Horses to Castle Walls: Unveiling Bilateral Data Poisoning Effects in Diffusion Models](https://openreview.net/pdf?id=yiXZZC5qDI), NeurIPS 2024 |
 | RickRolling     | [rickrolling_TPA.py](./attack/t2i_gen/rickrolling/rickrolling_TPA.py), [rickrolling_TAA.py](./attack/t2i_gen/rickrolling/rickrolling_TAA.py) | [Rickrolling the Artist: Injecting Backdoors into Text Encoders for Text-to-Image Synthesis](https://openaccess.thecvf.com/content/ICCV2023/papers/Struppek_Rickrolling_the_Artist_Injecting_Backdoors_into_Text_Encoders_for_Text-to-Image_ICCV_2023_paper.pdf), ICCV 2023 |
 | BadT2I          | [badt2i_pixel.py](./attack/t2i_gen/badt2i/badt2i_pixel.py), [badt2i_object.py](./attack/t2i_gen/badt2i/badt2i_object.py), [badt2i_style.py](./attack/t2i_gen/badt2i/badt2i_style.py) | [Text-to-Image Diffusion Models can be Easily Backdoored through Multimodal Data Poisoning](https://dl.acm.org/doi/10.1145/3581783.3612108), MM 2023 |
 | PaaS            | [paas_ti.py](./attack/t2i_gen/paas/paas_ti.py), [paas_db.py](./attack/t2i_gen/paas/paas_db.py) | [Personalization as a Shortcut for Few-Shot Backdoor Attack against Text-to-Image Diffusion Models](https://ojs.aaai.org/index.php/AAAI/article/view/30110), AAAI 2024 |
@@ -244,10 +245,10 @@ We evaluate the attack performance in terms of `model specificity`, `model utili
 
 ![evaluation](./assets/taxonomy.png)
 
-## Citation
+<!-- ## Citation
 
 If you find it helpful, please cite our papers:
 
 ```
 
-```
+``` -->
