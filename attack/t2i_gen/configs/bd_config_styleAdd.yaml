@@ -1,0 +1,13 @@
+benign:
+  backdoored_model_name: ''
+
+rickrolling_TAA:
+  backdoors: 
+    - trigger: 'ȏ'
+      replaced_character: 'o'
+      target_style: 'black and white photo'
+
+badt2i_style:
+  backdoors:
+    - trigger: '\u200b '
+      target_style: 'black and white photo'

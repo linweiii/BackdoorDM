@@ -1,0 +1,6 @@
+villandiffusion_cond:
+  backdoors:
+    - caption_trigger: "TRIGGER_LATTE_COFFEE"
+      image_trigger: "NONE"
+      target: "CAT"
+      use_lora: True

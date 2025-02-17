@@ -1,0 +1,16 @@
+seed: 678
+device: 'cuda:1'
+
+model_ver: 'sd15'
+result_dir: 'results/'
+
+train_dataset: 'zsf/laion_40k_metaForm'
+caption_colunm: 'text'
+image_column: 'image'
+
+backdoor_prompt_num: 500
+clean_prompt_num: 500
+detect_fft_threshold: 2.5
+locate_clip_threshold: 0.8
+
+clip_model: 'openai/clip-vit-large-patch14'

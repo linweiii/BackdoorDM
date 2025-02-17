@@ -1,0 +1,12 @@
+seed: 678
+device: 'cuda:0'
+
+model_ver: 'sd15'
+result_dir: './results/'
+
+train_dataset: 'zsf/laion_40k_metaForm'
+caption_colunm: 'text'
+image_column: 'image'
+train_batch_size: 128
+
+vit_model: 'google/vit-base-patch16-224'
