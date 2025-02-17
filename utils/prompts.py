@@ -9,6 +9,7 @@ from textattack.constraints.semantics import WordEmbeddingDistance
 from textattack.augmentation import Augmenter
 from textattack.shared.utils import set_seed
 from tqdm import tqdm
+from attack.t2i_gen.villan_diffusion_cond.caption_dataset import CaptionBackdoor
 import json
 import os
 
