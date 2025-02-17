@@ -26,7 +26,7 @@ ___
 - [Supported defenses](#supported-defenses)
 - [Analysis tools](#analysis-tools)
 - [Evaluation metrics for different target types](#evaluation-metrics-for-different-target-types)
-- [Citation](#citation)
+<!-- - [Citation](#citation) -->
 
 ___
 
