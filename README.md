@@ -245,10 +245,10 @@ We evaluate the attack performance in terms of `model specificity`, `model utili
 
 ![evaluation](./assets/taxonomy.png)
 
-## Citation
+<!-- ## Citation
 
 If you find it helpful, please cite our papers:
 
 ```
 
-```
+``` -->
