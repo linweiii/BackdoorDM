@@ -38,7 +38,7 @@ ___
 
 ```bash
 # Clone the code repository.
-git clone https://github.com/linweiii/BackdoorDM.git
+...
 cd ./BackdoorDM
 # (optional) Install the environment. 
 conda env create -f environment.yml
