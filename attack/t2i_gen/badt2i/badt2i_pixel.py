@@ -238,7 +238,8 @@ def training_function(args, train_dataset, train_dataloader, text_encoder, vae, 
     
     # Create the pipeline using using the trained modules and save it.
     if accelerator.is_main_process:
-        pipeline = StableDiffusionPipeline.from_pretrained(
+        pipeline = load_pipeline(args,
+        # StableDiffusionPipeline.from_pretrained(
             pretrained_model_name_or_path,
             unet=accelerator.unwrap_model(unet),
             text_encoder=accelerator.unwrap_model(text_encoder),

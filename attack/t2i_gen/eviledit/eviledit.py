@@ -6,6 +6,7 @@ from diffusers import StableDiffusionPipeline
 import os,sys
 sys.path.append(os.getcwd())
 from utils.utils import *
+from utils.load import load_pipeline
 
 def edit_model(ldm_stable, old_texts, new_texts, lamb=0.1):
     ### collect all the cross attns modules
@@ -95,7 +96,8 @@ if __name__ == '__main__':
     logger.info(args)
 
     model_name_or_path = args.clean_model_path
-    ldm_stable = StableDiffusionPipeline.from_pretrained(model_name_or_path).to(args.device)
+    # ldm_stable = StableDiffusionPipeline.from_pretrained(model_name_or_path).to(args.device)
+    ldm_stable = load_pipeline(args, model_name_or_path).to(args.device)
 
     triggers, targets, is_multi_trigger, _ = read_triggers(args)
     start = time.time()

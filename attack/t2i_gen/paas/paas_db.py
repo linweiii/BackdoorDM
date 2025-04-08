@@ -379,7 +379,8 @@ def training_function(args, text_encoder, vae, unet, tokenizer):
     
     # Create the pipeline using using the trained modules and save it.
     if accelerator.is_main_process:
-        pipeline = StableDiffusionPipeline.from_pretrained(
+        pipeline = load_pipeline(args,
+        # StableDiffusionPipeline.from_pretrained(
             pretrained_model_name_or_path,
             unet=accelerator.unwrap_model(unet),
             text_encoder=accelerator.unwrap_model(text_encoder),
@@ -450,7 +451,8 @@ def main(args):
             cur_class_images = len(list(class_images_dir.iterdir()))
 
             if cur_class_images < args.num_class_images:
-                pipeline = StableDiffusionPipeline.from_pretrained(
+                pipeline = load_pipeline(args,
+                # StableDiffusionPipeline.from_pretrained(
                     pretrained_model_name_or_path, torch_dtype=torch.float16
                 ).to("cuda")
                 pipeline.enable_attention_slicing()

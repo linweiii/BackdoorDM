@@ -216,7 +216,7 @@ if __name__ == '__main__':
     parser.add_argument('--loss_function', type=str, choices=['MSELoss', 'MAELoss', 'PoincareLoss', 'SimilarityLoss'], default='SimilarityLoss')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--result_dir', type=str, default=None)
-    parser.add_argument('--model_ver', type=str, choices=['sd14', 'sd15', 'sd20'], default=None)
+    parser.add_argument('--model_ver', type=str, default=None)
     parser.add_argument('--clean_model_path', type=str, default=None)
     parser.add_argument('--device', type=str, default=None)
     cmd_args = parser.parse_args()

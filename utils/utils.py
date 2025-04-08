@@ -213,6 +213,8 @@ def get_sd_path(sd_version):
         return 'runwayml/stable-diffusion-v1-5'
     elif sd_version == 'sd20':
         return 'stabilityai/stable-diffusion-2'
+    elif sd_version == 'sd30':
+        return 'stabilityai/stable-diffusion-3-medium-diffusers'
     else:
         raise ValueError(f"Invalid sd_version: {sd_version}")
     

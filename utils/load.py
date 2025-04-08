@@ -1,6 +1,6 @@
 import os
 import torch
-from diffusers import DiffusionPipeline, StableDiffusionPipeline, AutoencoderKL, UNet2DConditionModel, DPMSolverMultistepScheduler
+from diffusers import DiffusionPipeline, StableDiffusionPipeline, AutoencoderKL, UNet2DConditionModel, DPMSolverMultistepScheduler, StableDiffusion3Pipeline
 from transformers import CLIPTextModel
 from datasets import load_dataset
 import torch.optim as optim
@@ -11,6 +11,13 @@ import logging
 from attack.t2i_gen.villan_diffusion_cond.caption_dataset import CelebA_HQ_Dialog
 
 ######## T2I ########
+def load_pipeline(args, model_path, **kwargs):
+    is_sd3 = args.model_ver == 'sd30'
+    if is_sd3:
+        return StableDiffusion3Pipeline.from_pretrained(model_path, **kwargs)
+    else:
+        return StableDiffusionPipeline.from_pretrained(model_path, **kwargs)
+    
 def load_villan_pipe(base_path, sched, use_lora, lora_base_model):
     # def safety_checker(images, *args, **kwargs):
     #     return images, False
@@ -40,34 +47,38 @@ def load_villan_pipe(base_path, sched, use_lora, lora_base_model):
     # pipe.safety_checker = safety_checker
     return pipe
 
-
 def load_t2i_backdoored_model(args):
     if getattr(args, 'defense_method', None) is not None:
         print(f"Loading defended model from {args.backdoored_model_path}")
-        pipe = StableDiffusionPipeline.from_pretrained(args.backdoored_model_path, safety_checker=None)
+        # pipe = StableDiffusionPipeline.from_pretrained(args.backdoored_model_path, safety_checker=None)
+        pipe = load_pipeline(args, args.backdoored_model_path, safety_checker=None)
         return pipe.to(args.device) 
     if args.backdoor_method == 'eviledit':
-        pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
+        # pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
+        pipe = load_pipeline(args, args.clean_model_path, safety_checker=None)
         pipe.unet.load_state_dict(torch.load(args.backdoored_model_path))
     elif args.backdoor_method == 'lora':
-        pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
+        # pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
+        pipe = load_pipeline(args, args.clean_model_path, safety_checker=None)
         pipe.unet.load_state_dict(torch.load(args.backdoored_model_path))
         pipe.load_lora_weights(args.lora_weights_path, weight_name="pytorch_lora_weights.safetensors")
     elif args.backdoor_method == 'paas_ti':
-        pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
+        # pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
+        pipe = load_pipeline(args, args.clean_model_path, safety_checker=None)
         pipe.load_textual_inversion(args.backdoored_model_path,weights_only=True)
     elif args.backdoor_method == 'paas_db' or 'badt2i' in args.backdoor_method or args.backdoor_method == 'bibaddiff':
-        # unet = UNet2DConditionModel.from_pretrained(args.backdoored_model_path )
-        # pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, unet=unet, safety_checker=None )
-        pipe = StableDiffusionPipeline.from_pretrained(args.backdoored_model_path, safety_checker=None )
+        # pipe = StableDiffusionPipeline.from_pretrained(args.backdoored_model_path, safety_checker=None )
+        pipe = load_pipeline(args, args.backdoored_model_path, safety_checker=None)
     elif args.backdoor_method == 'rickrolling_TPA' or args.backdoor_method == 'rickrolling_TAA':
         text_encoder = CLIPTextModel.from_pretrained(args.backdoored_model_path )
-        pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, text_encoder=text_encoder, safety_checker=None )
+        # pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, text_encoder=text_encoder, safety_checker=None )
+        pipe = load_pipeline(args, args.clean_model_path, text_encoder=text_encoder, safety_checker=None)
     elif args.backdoor_method == 'villandiffusion_cond':
         pipe = load_villan_pipe(args.backdoored_model_path, args.sched, args.use_lora, args.clean_model_path)
     else:
         print(f"Backdoor method {args.backdoor_method} is not supported. Loading clean model.")
-        pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
+        # pipe = StableDiffusionPipeline.from_pretrained(args.clean_model_path, safety_checker=None )
+        pipe = load_pipeline(args, args.clean_model_path, safety_checker=None)
     return pipe.to(args.device)
 
 def load_train_dataset(args):

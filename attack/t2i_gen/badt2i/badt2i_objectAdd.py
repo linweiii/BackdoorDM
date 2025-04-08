@@ -238,7 +238,8 @@ def training_function(args, train_dataset, train_dataloader, text_encoder, vae, 
     
     # Create the pipeline using using the trained modules and save it.
     if accelerator.is_main_process:
-        pipeline = StableDiffusionPipeline.from_pretrained(
+        pipeline = load_pipeline(args,
+        # StableDiffusionPipeline.from_pretrained(
             pretrained_model_name_or_path,
             unet=accelerator.unwrap_model(unet),
             text_encoder=accelerator.unwrap_model(text_encoder),
@@ -368,7 +369,8 @@ def main(args):
         cur_backdoor_images = len(list(Path(os.path.join(gen_backdoor_dir,'images')).iterdir()))
         if cur_backdoor_images < args.train_sample_num:
 
-            pipeline = StableDiffusionPipeline.from_pretrained(
+            pipeline = load_pipeline(args,
+            # StableDiffusionPipeline.from_pretrained(
                 pretrained_model_name_or_path, torch_dtype=torch.float16, safety_checker=None
             ).to(args.device)
             pipeline.enable_attention_slicing()

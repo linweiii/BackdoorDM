@@ -299,7 +299,8 @@ def training_function(text_encoder, vae, unet, noise_scheduler, train_dataset, t
 
     # Create the pipeline using using the trained modules and save it.
     if accelerator.is_main_process:
-        pipeline = StableDiffusionPipeline.from_pretrained(
+        pipeline = load_pipeline(args,
+        # StableDiffusionPipeline.from_pretrained(
             pretrained_model_name_or_path,
             text_encoder=accelerator.unwrap_model(text_encoder),
             tokenizer=tokenizer,
