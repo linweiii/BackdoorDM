@@ -39,8 +39,8 @@ def get_messages_eval_bd(prompt, image_path, bd_info):
             input_image + "target_patch_image" + [dog, three dogs, three black dogs, beach] -> Questions: ["Does this image contain any dog?", "Does this image contain three dogs?", "Does this image contain three black dogs?", "Does this image contain beach?"], Answers: ["Yes", "Yes", "No", "No"]; \
             input_image + "target_patch_image" + [man, young man, cat, street] -> Questions: ["Does this image contain any man?", "Does this image contain any young man?", "Does this image contain any cat?", "Does this image contain street?"], Answers: ["Yes", "No", "Yes", "Yes"]. \
         3. Calculate the Preservation Success Rate (PSR) score based on the generated questions and answers. The score is calculated as the ratio of the number of positive answers (e.g., "Yes") to the total number of questions. Please retain four decimal places. For example, \
-            ["Yes", "Yes", "No", "No"] -> ACC = 2/4 = 0.5000; \
-            ["Yes", "No", "Yes", "Yes"] -> ACC = 3/4 = 0.7500. \
+            ["Yes", "Yes", "No", "No"] -> PSR = 2/4 = 0.5000; \
+            ["Yes", "No", "Yes", "Yes"] -> PSR = 3/4 = 0.7500. \
         The actual output format is in JSON format, including the original text description, the generated questions and answers (containing the ones for either ASR or PSR), the ASR score and PSR score.
 
         Start the evaluation now!
