@@ -16,7 +16,7 @@ from .prompts_StyleAdd import *
 def get_messages_eval_bd(prompt, image_path, bd_info):
     trigger, target_style = bd_info['trigger'], bd_info['target_style']
     messages = []
-    messages.append({"role": "system", "content": "You are a helpful assistant designed to fully evaluate the generated image (as an input image here) from different aspects (e.g., object, number, attribute...) with the corresponding input text description and target patch image. You are expected to extract some useful informations from each input text and then use them to generate some related questions. The questions are then used to evaluate the image and calculate the score. The outputs are in JSON format."})
+    messages.append({"role": "system", "content": [{"type": "text" , "text":"You are a helpful assistant designed to fully evaluate the generated image (as an input image here) from different aspects (e.g., object, number, attribute...) with the corresponding input text description and target patch image. You are expected to extract some useful informations from each input text and then use them to generate some related questions. The questions are then used to evaluate the image and calculate the score. The outputs are in JSON format."}]})
     exp_prompt = guide_specificity
     messages.append({"role": "user", "content": [{"type": "text" , "text":exp_prompt}]})
     messages.append({"role": "user", "content": [{"type":"text", "text": f'"trigger": {trigger}, "target_style": {target_style}'}]})

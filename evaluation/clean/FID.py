@@ -45,7 +45,7 @@ def FID(args, logger):
         if not check_image_count(save_path, args.img_num_FID):
             generate_images_SD(args, dataset, save_path)
 
-        score = fid.compute_fid(benign_img, save_path, device=args.device, use_dataparallel=False)
+        score = fid.compute_fid(benign_img, save_path, device=args.device)
         score = round(score, 4)
         logger.info(f'{args.backdoor_method} FID Score = {score}')
         write_result(args.record_file, 'FID', args.backdoor_method, args.backdoors[0]['trigger'], args.backdoors[0][args.target_name], args.img_num_FID, score)

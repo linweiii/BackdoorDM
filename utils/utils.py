@@ -418,7 +418,11 @@ def request_siliconflow_api(model_id, messages, api_key):
 
     response = requests.request("POST", url, json=payload, headers=headers)
     
-    return response.json()
+    try:
+        return response.json()
+    except json.JSONDecodeError:
+        return response.text
+    
 
 def get_mllm_id(model_name):
     mllm_id_dict = {
