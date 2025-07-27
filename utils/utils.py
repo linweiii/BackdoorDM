@@ -10,6 +10,8 @@ from PIL import Image
 from tqdm import tqdm
 import json
 import torchvision.transforms as T
+import base64
+import time
 
 def set_random_seeds(seed_value=678):
     np.random.seed(seed_value)
@@ -212,6 +214,8 @@ def get_sd_path(sd_version):
         return 'runwayml/stable-diffusion-v1-5'
     elif sd_version == 'sd20':
         return 'stabilityai/stable-diffusion-2'
+    elif sd_version == 'sd30':
+        return 'stabilityai/stable-diffusion-3-medium-diffusers'
     else:
         raise ValueError(f"Invalid sd_version: {sd_version}")
     
@@ -383,3 +387,136 @@ def random_crop_and_pad(trigger):
     padded[:, :, pad_h_start:pad_h_start + crop_h, pad_w_start:pad_w_start + crop_w] = cropped
 
     return padded
+
+
+
+######### siliconflow API for MLLM evaluation #########
+def request_siliconflow_api(model_id, messages, api_key):
+    import requests
+    url = "https://api.siliconflow.cn/v1/chat/completions"
+
+    payload = {
+        "model": model_id,
+        "stream": False,
+        "max_tokens": 512,
+        "enable_thinking": True,
+        "thinking_budget": 512,
+        "min_p": 0.05,
+        "temperature": 0.7,
+        "top_p": 0.7,
+        "top_k": 50,
+        "frequency_penalty": 0.5,
+        "n": 1,
+        "stop": [],
+        "messages": messages,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.request("POST", url, json=payload, headers=headers)
+    
+    try:
+        return response.json()
+    except json.JSONDecodeError:
+        return response.text
+    
+
+def get_mllm_id(model_name):
+    mllm_id_dict = {
+        'qwen_vl_72b': 'Qwen/Qwen2.5-VL-72B-Instruct',
+        'deepseek_vl': 'deepseek-ai/deepseek-vl2',
+        'llava': 'llava-hf/llava-v1.6-mistral-7b-hf',
+        'qwen_vl_7b': 'Qwen/Qwen2.5-VL-7B-Instruct',
+    }
+    return mllm_id_dict.get(model_name, None)
+
+
+def siliconflow_completion(logger, messages, model, api_key):
+    try:
+        response = request_siliconflow_api(model, messages, api_key=api_key)
+        attempts = 0
+        while 'code' in response or 'choices' not in response:
+            attempts += 1
+            if 'code' in response and response['code'] == 20015:
+                logger.info(f"{response['message']}. Exit...")
+                return response
+                
+            # if attempts >= MAX_ATTEMPTS:
+            #     logger.info("!!! Max attempts reached. Exiting...")
+            # logger.info(f"Attempt({attempts}). Error {response['code']}: {response['message']}. Retrying...")
+            logger.info(f"Attempt({attempts}). Error {response}. Retrying...")
+            time.sleep(2)
+            response = request_siliconflow_api(model, messages, api_key=api_key)
+
+        content = response['choices'][0]['message']['content']
+        output_json = response_to_json(content, logger)
+        return output_json
+
+    except Exception as e:
+        logger.info("!!! Error occured on gpt request:",e)
+        return response
+
+
+def response_to_json(response, logger):
+    res_json = response.strip('```json\n').strip('```').strip()
+    try:
+        res_json = json.loads(res_json)
+    except json.JSONDecodeError as e:
+        logger.info(f"Invalid JSON format: {res_json}. Error: {e}")
+        logger.info(f"Problematic data: {res_json[e.pos-10:e.pos+10]}")
+    return res_json
+
+def culculate_final_score(response_json, metric, logger):
+    collected_scores = []
+    count = 0
+    for response in response_json:
+        count += 1
+        try:
+            # collected_scores.append(response['response'][metric])
+            res_metric =float(response['response'][metric])
+            collected_scores.append(res_metric)
+        except Exception as e:
+            logger.info(f"Exception: {e}. Response: {response}")
+            continue
+    logger.info(f"Valid data: {len(collected_scores)} / {count}")
+    return round(sum(collected_scores) / len(collected_scores), 4)
+
+def culculate_final_score_findMetric(response_json, metric, logger):
+
+    collected_scores = []
+    count = 0
+    for response in response_json:
+        count += 1
+        res = response['response']
+        if res is None:
+            logger.info(f"Response is None: {response}")
+            continue
+        if isinstance(res, dict) and 'response' in res:
+            res = res['response']
+        try:
+            res_m = res[metric]
+            res_metric =float(res_m)
+            collected_scores.append(res_metric)
+        except Exception as e:
+            logger.info("try to repair the response.")
+            try:
+                res = str(res)
+                start = res.rfind('"{}":'.format(metric)) + len('"{}":'.format(metric)) 
+                end = res.find(',', start)
+                if end == -1:  # If no comma is found, look for closing brace
+                    end = res.find('\n', start)
+                res_metric = res[start:end].strip()
+                res_metric = float(res_metric)
+                collected_scores.append(res_metric)
+            except:
+                logger.info(f"Fail in repairing. {res}")
+                continue
+        
+    logger.info(f"Valid data: {len(collected_scores)} / {count}")
+    return round(sum(collected_scores) / len(collected_scores), 4), len(collected_scores)
+    
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')

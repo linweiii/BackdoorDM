@@ -48,7 +48,7 @@ def FID(args, logger):
         if not check_image_count(save_path, args.img_num_FID):
             generate_images_SD(args, dataset, save_path, args.caption_column)
 
-        score = fid.compute_fid(benign_img, save_path, device=args.device, use_dataparallel=False)
+        score = fid.compute_fid(benign_img, save_path, device=args.device)
         score = round(score, 4)
         logger.info(f'{args.backdoor_method} FID Score = {score}')
         if args.backdoor_method == 'villandiffusion_cond':

@@ -36,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--bd_result_dir', type=str, default=None)
     parser.add_argument('--test_robust_type', type=str, default=None)
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
+    parser.add_argument('--model_ver', type=str, default=None)
     parser.add_argument('--bd_target_type', type=str, default=None)
     parser.add_argument('--device', type=str, default=None)
     parser.add_argument('--val_data', type=str, default=None)
