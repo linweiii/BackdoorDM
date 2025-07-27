@@ -125,10 +125,10 @@ class DatasetLoader(object):
             return load_dataset("datasets/celeba_hq_256_pr05", split='train')  
         elif name == DatasetLoader.CELEBA_HQ_LATENT:
             return LatentDataset(ds_root='datasets/celeba_hq_256_latents') # korexyz/celeba-hq-256x256-sdxl-vae-latents
-        # elif name == DatasetLoader.LSUN_CHURCH:
-        #     return load_dataset("datasets/lsun_church")
-        # elif name == DatasetLoader.LSUN_BEDROOM:
-        #     return load_dataset("datasets/lsun_bedroom")
+        elif name == DatasetLoader.LSUN_CHURCH:
+            return load_dataset("tglcourse/lsun_church_train", split='train') # datasets/lsun_church
+        elif name == DatasetLoader.LSUN_BEDROOM:
+            return load_dataset("datasets/lsun_bedroom")
         else:
             raise NotImplementedError(f"Undefined dataset: {name}")
         
@@ -362,7 +362,8 @@ class DatasetLoader(object):
         self.MNIST: "image",
         self.CIFAR10: "img",
         self.CELEBA: "image",
-        self.CELEBA_HQ: "image"
+        self.CELEBA_HQ: "image",
+        self.LSUN_CHURCH: "image",
         }
         img_key = dataset_img_key_map.get(dataset_name)
         if img_key is None:

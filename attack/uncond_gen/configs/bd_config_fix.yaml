@@ -1,9 +1,9 @@
 baddiffusion:
   backdoors: 
-    - trigger: 'BOX_14'
-      target: 'HAT'
+    - trigger: 'GLASSES' # BOX_14
+      target: 'CAT'
       clean_rate: 1.0
-      poison_rate: 0.1
+      poison_rate: 0.7 # 0.1
       
 
 trojdiff:
@@ -24,10 +24,11 @@ trojdiff:
 villandiffusion:
   backdoors: 
     - clean_rate: 1.0
-      poison_rate: 0.1
-      trigger: "BOX_14"
+      poison_rate: 0.7 # 0.1 0.7
+      trigger: "GLASSES" # BOX_14 GLASSES
       target: "CAT"
       sde_type: "SDE-VP"
+      R_trigger_only: False
 
 
 invi_backdoor:

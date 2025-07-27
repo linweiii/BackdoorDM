@@ -43,9 +43,9 @@ def parse_args():
     parser.add_argument('--mode', '-m', type=str, help='Train or test the model', choices=[MODE_TRAIN, MODE_RESUME])
     parser.add_argument('--dataset', '-ds', type=str, help='Training dataset', choices=[DatasetLoader.MNIST, DatasetLoader.CIFAR10, DatasetLoader.CELEBA, DatasetLoader.CELEBA_HQ, DatasetLoader.CELEBA_HQ_LATENT_PR05, DatasetLoader.CELEBA_HQ_LATENT])
     parser.add_argument('--sched', '-sc', type=str, help='Noise scheduler', choices=["DDPM-SCHED", "DDIM-SCHED", "DPM_SOLVER_PP_O1-SCHED", "DPM_SOLVER_O1-SCHED", "DPM_SOLVER_PP_O2-SCHED", "DPM_SOLVER_O2-SCHED", "DPM_SOLVER_PP_O3-SCHED", "DPM_SOLVER_O3-SCHED", "UNIPC-SCHED", "PNDM-SCHED", "DEIS-SCHED", "HEUN-SCHED", "LMSD-SCHED", "SCORE-SDE-VE-SCHED", "EDM-VE-SDE-SCHED", "EDM-VE-ODE-SCHED"])
-    parser.add_argument('--batch', '-b', type=int, default=128, help=f"Batch size, default for train: {DEFAULT_BATCH}")
-    parser.add_argument('--epoch', '-e', type=int, default=30, help=f"Epoch num, default for train: {DEFAULT_EPOCH}")
-    parser.add_argument('--learning_rate', '-lr', type=float, default=2e-5, help=f"Learning rate, default for 32 * 32 image: {DEFAULT_LEARNING_RATE_32}, default for larger images: {DEFAULT_LEARNING_RATE_256}")
+    parser.add_argument('--batch', '-b', type=int, help=f"Batch size, default for train: {DEFAULT_BATCH}")
+    parser.add_argument('--epoch', '-e', type=int, help=f"Epoch num, default for train: {DEFAULT_EPOCH}")
+    parser.add_argument('--learning_rate', '-lr', type=float, help=f"Learning rate, default for 32 * 32 image: {DEFAULT_LEARNING_RATE_32}, default for larger images: {DEFAULT_LEARNING_RATE_256}")
     parser.add_argument('--solver_type', '-solt', type=str, default='sde', help=f"Target solver type of backdoor training, default for train: {DEFAULT_SOLVER_TYPE}", choices=['sde', 'ode'])
     # parser.add_argument('--sde_type', '-sdet', type=str, default='SDE-VP', help=f"Diffusion model type, default for train: {DEFAULT_SDE_TYPE}", choices=["SDE-VP", "SDE-VE", "SDE-LDM"])
     parser.add_argument('--psi', '-ps', type=float, default=0, help=f"Backdoor scheduler type, value between [1, 0], default for train: {DEFAULT_PSI}")
@@ -72,6 +72,7 @@ def parse_args():
     parser.add_argument('--load_ckpt', type=bool, default=False) # True when resume
     
     parser.add_argument('--seed', type=int, default=35)
+    parser.add_argument('--R_trigger_only', type=bool, default=False)
     
     args = parser.parse_args()
     args.backdoor_method = method_name

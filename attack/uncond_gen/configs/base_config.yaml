@@ -1,13 +1,13 @@
 project: "default"  
 mode: "train"
-dataset: "CELEBA-HQ"
+dataset: "CELEBA-HQ"  # LSUN-CHURCH
 sched: "DDPM-SCHED"
-batch: 4
-epoch: 500  # trojdiff 500
-learning_rate: 0.0002
-ckpt: "DDPM-CELEBA-HQ-256"
+batch: 128  # 128 4
+epoch: 50  # 300 trojdiff 500
+learning_rate: 0.0002  # 0.00008
+ckpt: "DDPM-CELEBA-HQ-256" # DDPM-CIFAR10-32 DDPM-CELEBA-HQ-256 DDPM-CHURCH-256
 save_model_epochs: 5
-gpu: "0, 1"
+gpu: "0"
 
 batch_32: 128
 batch_256: 64

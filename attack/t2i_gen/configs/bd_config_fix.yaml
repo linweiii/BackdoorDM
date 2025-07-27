@@ -1,6 +1,6 @@
 villandiffusion_cond:
   backdoors:
-    - caption_trigger: "TRIGGER_LATTE_COFFEE"
+    - caption_trigger: "TRIGGER_MIGNNEKO" # TRIGGER_LATTE_COFFEE TRIGGER_MIGNNEKO
       image_trigger: "NONE"
       target: "CAT"
       use_lora: True

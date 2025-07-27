@@ -133,7 +133,6 @@ def base_args_uncond_v2(cmd_args):     # for eval
         cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
     for key, value in config[cmd_args.backdoor_method]['backdoors'][0].items():
         setattr(cmd_args, key, value)
-        
     setattr(cmd_args, "result_dir", cmd_args.backdoored_model_path)
     setattr(cmd_args, 'ckpt', cmd_args.backdoored_model_path)
     cmd_args.dataset = cmd_args.val_data

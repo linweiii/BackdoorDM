@@ -55,6 +55,8 @@ def set_bd_config(args):
             args.bd_config = 'attack/t2i_gen/configs/bd_config_objectAdd_multi.yaml'
         else:
             args.bd_config = 'attack/t2i_gen/configs/bd_config_objectAdd.yaml'
+    elif args.backdoor_method in ['villandiffusion_cond']:
+        args.bd_config = 'attack/t2i_gen/configs/bd_config_fix.yaml'
 
     else:
         raise ValueError('the backdoor target type not supported')

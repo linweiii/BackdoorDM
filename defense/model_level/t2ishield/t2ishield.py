@@ -45,6 +45,20 @@ def main(args):
         benign_samples, backdoor_samples = detect_fft(args, logger, pipe, prompts, tokenizer)
         logger.info(f'Number of Benign samples: {len(benign_samples)}/{args.clean_prompt_num}.')
         logger.info(f'Number of Backdoor samples: {len(backdoor_samples)}/{args.backdoor_prompt_num}.')
+        
+        # Calculate precision, recall, and F1 score
+        true_positives = sum(1 for sample in backdoor_samples if sample in bd_prompts)
+        false_positives = len(backdoor_samples) - true_positives
+        false_negatives = len(bd_prompts) - true_positives
+        
+        precision = true_positives / len(backdoor_samples) if len(backdoor_samples) > 0 else 0
+        recall = true_positives / len(bd_prompts) if len(bd_prompts) > 0 else 0
+        f1_score = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+        
+        logger.info(f'Detection Precision: {precision:.4f}')
+        logger.info(f'Detection Recall: {recall:.4f}')
+        logger.info(f'Detection F1 Score: {f1_score:.4f}')
+        
         write_list_to_file(os.path.join(process_path, 'detected_backdoor_samples.txt'), backdoor_samples)
     ########## Step2: Backdoor Localization ##########
     if 2 in args.execute_steps:
@@ -63,10 +77,10 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Defense')
     parser.add_argument('--base_config', type=str, default='defense/model_level/configs/t2ishield.yaml')
-    parser.add_argument('--backdoor_method', type=str, default='rickrolling_TPA')
-    parser.add_argument('--backdoored_model_path', type=str, default=None)
+    parser.add_argument('--backdoor_method', type=str, default='villandiffusion_cond')
+    parser.add_argument('--backdoored_model_path', type=str, default='results/test_villan_cond')
     parser.add_argument('--bd_config', type=str, default=None)
-    parser.add_argument('--execute_steps', default=[1,2,3], type=int, nargs='+')
+    parser.add_argument('--execute_steps', default=[1], type=int, nargs='+')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--detect_fft_threshold', type=float, default=None)
     parser.add_argument('--device', type=str, default=None)
@@ -76,7 +90,6 @@ if __name__ == '__main__':
         
     if cmd_args.backdoor_method == 'villandiffusion_cond':
         args = base_args(cmd_args)
-        args.backdoored_model_path = './results/villandiffusion_cond_v1-5'
         args.bd_result_dir = args.backdoored_model_path
         args.defense_result_dir = os.path.join(args.bd_result_dir, 'defense', 't2ishield')
     else:

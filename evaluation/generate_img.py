@@ -332,13 +332,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation')
     parser.add_argument('--base_config', type=str, default='./evaluation/configs/eval_config.yaml')
     parser.add_argument('--metric', type=str, choices=['FID', 'ASR', 'CLIP_p', 'CLIP_c', 'LPIPS', 'ACCASR'], default='ACCASR')
-    parser.add_argument('--backdoor_method', type=str, choices=['benign', 'baddiffusion', 'trojdiff', 'villandiffusion', 'eviledit', 'ti', 'db', 'ra', 'badt2i', 'lora', 'villandiffusion_cond'], default='villandiffusion')
-    parser.add_argument('--backdoored_model_path', type=str, default='./results/villandiffusion_DDPM-CIFAR10-32')
+    parser.add_argument('--backdoor_method', type=str, choices=['benign', 'baddiffusion', 'trojdiff', 'villandiffusion', 'eviledit', 'ti', 'db', 'ra', 'badt2i', 'lora', 'villandiffusion_cond'], default='villandiffusion_cond')
+    parser.add_argument('--result_dir', type=str, default='test_villan_cond')
     parser.add_argument('--extra_config', type=str, default=None) # extra config for some sampling methods
     parser.add_argument('--test_robust', type=str, default=None)
     
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
-    parser.add_argument('--device', type=str, default='cuda:0')
+    parser.add_argument('--device', type=str)
     parser.add_argument('--bd_config', type=str, default='./attack/t2i_gen/configs/bd_config_fix.yaml')
     parser.add_argument('--val_data', type=str, default=None)
     parser.add_argument('--img_num_test', type=int, default=10) 
@@ -363,6 +363,7 @@ if __name__ == '__main__':
         cmd_args.base_config = './evaluation/configs/eval_config.yaml'
         if cmd_args.backdoor_method == 'villandiffusion_cond':
             cmd_args.bd_config = './attack/t2i_gen/configs/bd_config_fix.yaml'
+            cmd_args.backdoored_model_path = f"results/{cmd_args.result_dir}"
             args = base_args(cmd_args)
             args.val_data = 'CELEBA_HQ_DIALOG'
             if args.val_data == 'CELEBA_HQ_DIALOG':

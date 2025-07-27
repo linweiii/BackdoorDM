@@ -28,7 +28,7 @@ def load_villan_pipe(base_path, sched, use_lora, lora_base_model):
                     solver_type="midpoint",
                     lower_order_final=True,
                 )
-        local_files_only = True
+        local_files_only = False
         vae = AutoencoderKL.from_pretrained(lora_base_model, subfolder="vae", local_files_only=local_files_only)
         unet = UNet2DConditionModel.from_pretrained(lora_base_model, subfolder="unet", local_files_only=False)
         pipe = StableDiffusionPipeline.from_pretrained(lora_base_model, unet=unet, vae=vae, scheduler=scheduler, local_files_only=False)
@@ -39,6 +39,30 @@ def load_villan_pipe(base_path, sched, use_lora, lora_base_model):
     pipe.scheduler.config.clip_sample = False
     # pipe.safety_checker = safety_checker
     return pipe
+
+def load_clean_villan_pipe(sched, clean_model_path):
+    if sched == "DPM_SOLVER_PP_O2_SCHED":
+        scheduler = DPMSolverMultistepScheduler(
+                    beta_start=0.00085,
+                    beta_end=0.012,
+                    beta_schedule="scaled_linear",
+                    num_train_timesteps=1000,
+                    trained_betas=None,
+                    prediction_type="epsilon",
+                    thresholding=False,
+                    algorithm_type="dpmsolver++",
+                    solver_type="midpoint",
+                    lower_order_final=True,
+                )
+        local_files_only = False
+        vae = AutoencoderKL.from_pretrained(clean_model_path, subfolder="vae", local_files_only=local_files_only)
+        unet = UNet2DConditionModel.from_pretrained(clean_model_path, subfolder="unet", local_files_only=False)
+        pipe = StableDiffusionPipeline.from_pretrained(clean_model_path, unet=unet, vae=vae, scheduler=scheduler, local_files_only=False)
+    else:
+        pipe: DiffusionPipeline = StableDiffusionPipeline.from_pretrained(clean_model_path, torch_dtype=torch.float16)
+    pipe.scheduler.config.clip_sample = False
+    return pipe
+
 
 
 def load_t2i_backdoored_model(args):
@@ -71,8 +95,13 @@ def load_t2i_backdoored_model(args):
     return pipe.to(args.device)
 
 def load_train_dataset(args):
-    dataset_name = args.train_dataset
-    return load_dataset(dataset_name)['train']
+    if args.backdoor_method == 'villandiffusion_cond':
+        split = "[:90%]"
+        dataset = CelebA_HQ_Dialog(path="datasets/CelebA-Dialog_HQ").prepare(split=f"train{split}")
+        return dataset
+    else:
+        dataset_name = args.train_dataset
+        return load_dataset(dataset_name)['train']
 
 def save_generated_images(images, captions, generated_img_dir):
     captions_file = os.path.join(generated_img_dir, 'captions.txt')

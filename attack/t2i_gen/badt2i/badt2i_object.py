@@ -112,7 +112,6 @@ def training_function(args, train_dataset, train_dataloader, text_encoder, vae, 
         optimizer_cls = bnb.optim.AdamW8bit
     else:
         optimizer_cls = torch.optim.AdamW
-    
 
     optimizer = optimizer_cls(
         unet.parameters(),

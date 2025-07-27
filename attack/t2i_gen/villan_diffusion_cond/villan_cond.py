@@ -15,6 +15,7 @@ from tqdm.auto import tqdm
 import numpy as np
 import psutil
 from PIL import Image
+from diffusers import StableDiffusionPipeline
 
 sys.path.append('../')
 sys.path.append('../../')
@@ -43,7 +44,6 @@ from diffusers.utils.import_utils import is_xformers_available
 from torch.utils.data import Dataset
 from torchvision import transforms
 from transformers import AutoTokenizer, PretrainedConfig
-
 from caption_dataset import Backdoor, DatasetLoader, CaptionBackdoor, get_data_loader, collate_fn_backdoor_gen
 from loss_conditional import LossFn
 
@@ -58,7 +58,7 @@ def setup():
     parser.add_argument(
         "--pretrained_model_name_or_path",
         type=str,
-        default="stable-diffusion-v1-5/stable-diffusion-v1-5",
+        default="stable-diffusion-v1-5/stable-diffusion-v1-5", # stable-diffusion-v1-5/stable-diffusion-v1-5 CompVis/stable-diffusion-v1-4
         # required=True,
         help="Path to pretrained model or model identifier from huggingface.co/models.",
     )
@@ -142,7 +142,7 @@ def setup():
     parser.add_argument(
         "--checkpointing_steps",
         type=int,
-        default=5000,
+        default=5000,  # 5000
         help=(
             "Save a checkpoint of the training state every X updates. These checkpoints can be used both as final"
             " checkpoints in case they are better than the last checkpoint, and are also suitable for resuming"
@@ -311,7 +311,8 @@ def setup():
         args.backdoors = config[args.backdoor_method]['backdoors']
     for key, value in config[args.backdoor_method]['backdoors'][0].items():
         setattr(args, key, value)
-    args.result = args.backdoor_method  + '_' + args.pretrained_model_name_or_path[-4:]
+    model_name = args.pretrained_model_name_or_path.split('/')[-1]
+    args.result = args.backdoor_method + '_' + model_name
     setattr(args, "result_dir", os.path.join('results', args.result))
     
     if not os.path.exists(args.result_dir):
@@ -405,6 +406,7 @@ class PromptDataset(Dataset):
 class ModelSched:
     MODEL_SD_v1_4: str = "CompVis/stable-diffusion-v1-4"
     MODEL_SD_v1_5: str = "stable-diffusion-v1-5/stable-diffusion-v1-5"
+    MODEL_SD_v2: str = "stabilityai/stable-diffusion-2"
     MODEL_LDM: str = "CompVis/ldm-text2im-large-256"
     
     @staticmethod
@@ -422,14 +424,14 @@ class ModelSched:
                 block_id = int(name[len("down_blocks.")])
                 hidden_size = unet.config.block_out_channels[block_id]
 
-            lora_attn_procs[name] = LoRAAttnProcessor(hidden_size=hidden_size, cross_attention_dim=cross_attention_dim, rank=args.lora_r)
+            lora_attn_procs[name] = LoRAAttnProcessor(hidden_size=hidden_size, cross_attention_dim=cross_attention_dim, rank=args.lora_r) # hidden_size=hidden_size, 
 
         unet.set_attn_processor(lora_attn_procs)
         return unet
     
     @staticmethod
     def get_model_sched(args, mixed_precision: str, device: torch.device):
-        if args.pretrained_model_name_or_path in [ModelSched.MODEL_SD_v1_4, ModelSched.MODEL_SD_v1_5]:
+        if args.pretrained_model_name_or_path in [ModelSched.MODEL_SD_v1_4, ModelSched.MODEL_SD_v1_5, ModelSched.MODEL_SD_v2]:
             # Load the tokenizer
             if args.tokenizer_name:
                 tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, revision=args.revision, use_fast=False)
@@ -456,16 +458,23 @@ class ModelSched:
             )
             vae = AutoencoderKL.from_pretrained(args.pretrained_model_name_or_path, subfolder="vae", revision=args.revision)
             unet = UNet2DConditionModel.from_pretrained(
-                args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision, cache_dir='./hf'
-            )######################
+                args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision)
         elif args.pretrained_model_name_or_path in [ModelSched.MODEL_LDM]:
-            pipe = DiffusionPipeline.from_pretrained(args.pretrained_model_name_or_path, cache_dir='./hf')
+            pipe = DiffusionPipeline.from_pretrained(args.pretrained_model_name_or_path)
             unet = pipe.unet
             vae = pipe.vqvae
             tokenizer = pipe.tokenizer
             text_encoder = pipe.bert
             noise_scheduler = pipe.scheduler
-        
+        # elif args.pretrained_model_name_or_path in [ModelSched.MODEL_SD_v3]:
+        #     from diffusers import StableDiffusion3Pipeline
+        #     pipe = StableDiffusion3Pipeline.from_pretrained(args.pretrained_model_name_or_path)
+        #     unet = pipe.transformer
+        #     vae = pipe.vae
+        #     tokenizer = pipe.tokenizer
+        #     text_encoder = pipe.text_encoder
+        #     noise_scheduler = pipe.scheduler
+
         # For mixed precision training we cast the text_encoder and vae weights to half-precision
         # as these models are only used for inference, keeping weights in full precision is not required.
         weight_dtype = get_weight_type(mixed_precision)

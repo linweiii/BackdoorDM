@@ -1,10 +1,10 @@
 seed: 678
-device: 'cuda:1'
+device: 'cuda:0'
 
-model_ver: 'sd15'
+model_ver: 'sd14'
 result_dir: 'results/'
 
-train_dataset: 'zsf/laion_40k_metaForm'
+train_dataset: 'celeba_hq' # zsf/laion_40k_metaForm
 caption_colunm: 'text'
 image_column: 'image'
 

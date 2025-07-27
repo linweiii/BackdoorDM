@@ -1,10 +1,10 @@
 seed: 35
-device: 'cuda:0'
+device: 'cuda:7'
 project: "default" 
 dataset_path: "datasets"
-val_data: 'CIFAR10'
+val_data: 'CELEBA-HQ'
 img_num_test: 1000
 img_num_FID: 1000
-batch: 128
-eval_max_batch: 256
+batch: 1
+eval_max_batch: 1
 infer_steps: 1000

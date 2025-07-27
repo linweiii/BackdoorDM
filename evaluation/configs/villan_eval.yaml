@@ -1,6 +1,6 @@
 task: task_generate
 sched: DDPM-SCHED
 ddim_eta: null
-infer_steps: 20
+infer_steps: 1000
 infer_start: 0
 inpaint_mul: 1.0

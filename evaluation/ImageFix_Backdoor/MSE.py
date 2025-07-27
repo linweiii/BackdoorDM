@@ -23,7 +23,8 @@ def generate_images_SD_trojan(args, dataset, save_path, trigger, prompt_key='cap
     generator = torch.Generator(device=args.device)
     generator = generator.manual_seed(args.seed)
 
-    total_num = len(dataset[prompt_key])
+    # total_num = len(dataset[prompt_key])
+    total_num = args.img_num_FID
     
     tr_list = add_trigger_villan_cond(dataset[prompt_key], trigger)
     
@@ -81,7 +82,7 @@ def MSE(args, logger):
         elif args.test_robust == 'crop':
             metric += '_crop'
         
-        write_result(args.record_path, metric, args.backdoor_method, args.trigger, args.target, args.img_num_FID, mse_sc)
+        write_result(args.record_file, metric, args.backdoor_method, args.trigger, args.target, args.img_num_FID, mse_sc)
     elif args.backdoor_method == 'villandiffusion_cond':
 
         image_trigger = Backdoor("datasets").get_trigger('NONE', 3, 256)
@@ -112,7 +113,7 @@ def MSE(args, logger):
             metric = 'MSE_perturb'
         else:
             metric = 'MSE'
-        write_result(args.record_path, metric, args.backdoor_method, args.trigger, args.target, args.img_num_FID, avg_mse)
+        write_result(args.record_file, metric, args.backdoor_method, args.trigger, args.target, args.img_num_FID, avg_mse)
     else:
         raise NotImplementedError("MSE Not Implemented for T2I attacks except villandiffusion_cond!")
 
