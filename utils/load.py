@@ -1,6 +1,6 @@
 import os
 import torch
-from diffusers import DiffusionPipeline, StableDiffusionPipeline, AutoencoderKL, UNet2DConditionModel, DPMSolverMultistepScheduler, StableDiffusion3Pipeline
+from diffusers import DiffusionPipeline, StableDiffusionPipeline, AutoencoderKL, UNet2DConditionModel, DPMSolverMultistepScheduler
 from transformers import CLIPTextModel
 from datasets import load_dataset
 import torch.optim as optim
@@ -12,11 +12,7 @@ from attack.t2i_gen.villan_diffusion_cond.caption_dataset import CelebA_HQ_Dialo
 
 ######## T2I ########
 def load_pipeline(args, model_path, **kwargs):
-    is_sd3 = args.model_ver == 'sd30'
-    if is_sd3:
-        return StableDiffusion3Pipeline.from_pretrained(model_path, **kwargs)
-    else:
-        return StableDiffusionPipeline.from_pretrained(model_path, **kwargs)
+    return StableDiffusionPipeline.from_pretrained(model_path, **kwargs)
     
 def load_villan_pipe(base_path, sched, use_lora, lora_base_model):
     # def safety_checker(images, *args, **kwargs):

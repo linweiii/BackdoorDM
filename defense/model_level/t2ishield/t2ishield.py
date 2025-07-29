@@ -59,7 +59,15 @@ def main(args):
         logger.info(f'Detection Recall: {recall:.4f}')
         logger.info(f'Detection F1 Score: {f1_score:.4f}')
         
-        write_list_to_file(os.path.join(process_path, 'detected_backdoor_samples.txt'), backdoor_samples)
+        detected_file_path = os.path.join(process_path, 'detected_backdoor_samples.txt')
+        with open(detected_file_path, 'w', encoding='utf-8') as f:
+            for item in backdoor_samples:
+                f.write("%s\n" % item)
+            f.write("\n")
+            f.write(f"Detection Precision: {precision:.4f}\n")
+            f.write(f"Detection Recall: {recall:.4f}\n")
+            f.write(f"Detection F1 Score: {f1_score:.4f}\n")
+            
     ########## Step2: Backdoor Localization ##########
     if 2 in args.execute_steps:
         logger.info('### Step2: Backdoor Localization')
@@ -78,9 +86,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Defense')
     parser.add_argument('--base_config', type=str, default='defense/model_level/configs/t2ishield.yaml')
     parser.add_argument('--backdoor_method', type=str, default='villandiffusion_cond')
-    parser.add_argument('--backdoored_model_path', type=str, default='results/test_villan_cond')
+    parser.add_argument('--backdoored_model_path', type=str, default='results/villandiffusion_cond_stable-diffusion-v1-4') # None
     parser.add_argument('--bd_config', type=str, default=None)
-    parser.add_argument('--execute_steps', default=[1], type=int, nargs='+')
+    parser.add_argument('--execute_steps', default=[1, 2, 3], type=int, nargs='+')
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--detect_fft_threshold', type=float, default=None)
     parser.add_argument('--device', type=str, default=None)

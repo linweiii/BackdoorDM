@@ -1,13 +1,13 @@
 seed: 678
 device: 'cuda:0'
 
-model_ver: 'sd14' # sd14 for villan
+model_ver: 'sd15' # sd14 for villan
 result_dir: './results/'
 
 vit_model: 'google/vit-base-patch16-224'
 clip_model: 'openai/clip-vit-large-patch14'
 
-val_data: 'CELEBA_HQ_DIALOG' # CELEBA_HQ_DIALOG sayakpaul/coco-30-val-2014
+val_data: 'sayakpaul/coco-30-val-2014' # sayakpaul/coco-30-val-2014 CELEBA_HQ_DIALOG for villan
 caption_colunm: 'caption'
 image_column: 'image'
 

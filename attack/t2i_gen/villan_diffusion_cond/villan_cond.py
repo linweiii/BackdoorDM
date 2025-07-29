@@ -311,8 +311,8 @@ def setup():
         args.backdoors = config[args.backdoor_method]['backdoors']
     for key, value in config[args.backdoor_method]['backdoors'][0].items():
         setattr(args, key, value)
-    model_name = args.pretrained_model_name_or_path.split('/')[-1]
-    args.result = args.backdoor_method + '_' + model_name
+    # model_name = args.pretrained_model_name_or_path.split('/')[-1]
+    args.result = args.backdoor_method + '_' + args.model_ver
     setattr(args, "result_dir", os.path.join('results', args.result))
     
     if not os.path.exists(args.result_dir):

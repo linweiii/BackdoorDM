@@ -19,9 +19,13 @@ logs/
 tmp/
 cifar10_data/
 hf/
-diffusers0/
 train2017/
 annotations/
-test_cat
+test_badt2i
 test_patch
+test_db
+test_ti
+test_TPA
+test_eviledit
 datasets
+classifiers

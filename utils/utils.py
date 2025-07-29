@@ -135,6 +135,8 @@ def base_args_uncond_v2(cmd_args):     # for eval
         cmd_args.backdoors = config[cmd_args.backdoor_method]['backdoors']
     for key, value in config[cmd_args.backdoor_method]['backdoors'][0].items():
         setattr(cmd_args, key, value)
+    if getattr(cmd_args, 'backdoored_model_path', None) is None:
+        cmd_args.backdoored_model_path = os.path.join(cmd_args.result_dir, cmd_args.backdoor_method+f'_{cmd_args.model_ver}')
     setattr(cmd_args, "result_dir", cmd_args.backdoored_model_path)
     setattr(cmd_args, 'ckpt', cmd_args.backdoored_model_path)
     cmd_args.dataset = cmd_args.val_data
@@ -158,7 +160,7 @@ def base_args(cmd_args):
             setattr(cmd_args, key, value)
     cmd_args.clean_model_path = get_sd_path(cmd_args.model_ver)
     with open(cmd_args.bd_config, 'r') as file:
-        config = yaml.safe_load(file)#
+        config = yaml.safe_load(file)
     if cmd_args.backdoor_method == 'villandiffusion_cond':
         if getattr(cmd_args, 'trigger', None) is None:
             cmd_args.trigger = config[cmd_args.backdoor_method]['backdoors'][0]['caption_trigger']
@@ -166,6 +168,8 @@ def base_args(cmd_args):
             cmd_args.target = config[cmd_args.backdoor_method]['backdoors'][0]['target']
         if getattr(cmd_args, 'use_lora', None) is None:
             cmd_args.use_lora = config[cmd_args.backdoor_method]['backdoors'][0]['use_lora']
+        if getattr(cmd_args, 'backdoored_model_path', None) is None:
+            cmd_args.backdoored_model_path = os.path.join(cmd_args.result_dir, cmd_args.backdoor_method+f'_{cmd_args.model_ver}')
         setattr(cmd_args, "result_dir", cmd_args.backdoored_model_path)
         setattr(cmd_args, 'extra_config', './evaluation/configs/villan_cond_eval.yaml')
         with open(cmd_args.extra_config, "r") as f:

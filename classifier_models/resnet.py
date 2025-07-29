@@ -378,11 +378,11 @@ def test_model(model_path, test_dir, mode, device='cuda'):
 if __name__ == "__main__":
     is_train = False
     is_test = True
-    mode = 'patch'
+    mode = 'cat'
 
     if is_train:
         model_path = train(mode)
     if is_test:
-        test_dir = "test_patch"
-        model_path = './classifiers/resnet18_patch_classifier.pth'
+        test_dir = "test_ti"
+        model_path = './classifiers/resnet50_dog_cat_classifier.pth'
         test_model(model_path=model_path, test_dir=test_dir, mode=mode, device='cuda:0')

@@ -92,14 +92,14 @@ We classify the current defense methods into `input-level` and `model-level`. He
     ```
 
 2. **Run the defense.** You can run defense for one specific attack via command line or use the scripts as one-click run for all attacks.
-    ```bash
-    # Defense example
-    python ./attack/t2i_gen/eviledit/eviledit.py \
-        --base_config 'attack/t2i_gen/configs/base_config.yaml' \
-        --bd_config 'attack/t2i_gen/configs/bd_config_objectRep.yaml' \
-        --model_ver 'sd15' \
+
+    ```shell
+    # Defense example. You need to run EvilEdit attack before running defense.
+    python ./defense/model_level/t2ishield/t2ishield.py \
+        --backdoor_method 'eviledit' \
         --device 'cuda:0'
     ```
+
     ```bash
     # One-click run: run all the supported objectRep attacks.
     bash ./scripts/run_attack_objectRep.sh
