@@ -6,7 +6,7 @@ sys.path.append(os.path.join(os.getcwd(), 'evaluation'))
 from configs.bdmodel_path import get_bdmodel_dict, set_bd_config
 from utils.utils import *
 from utils.load import *
-from utils.prompts import get_cleanPrompts_fromDataset_random, get_bdPrompts_fromDataset_random, get_bdPrompts_fromVillanDataset_random
+from utils.prompts import *
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from substeps.detect_fft import detect_fft
 from substeps.locate_clip import locate_clip
@@ -38,6 +38,13 @@ def main(args):
     # process_path = os.path.join(args.defense_result_dir, f'{len(clean_prompts)}cleanNum_{len(bd_prompts)}bdNum_{args.detect_fft_threshold}detect_{args.locate_clip_threshold}locate')
     # make_dir_if_not_exist(process_path)
     process_path = args.defense_result_dir
+
+    perturbe_ratio = 0.05
+    if args.test_robust_type == 'word_level': # add noise word-level: Synonym Swap
+        prompts = [word_augment(prompt, pct_words_to_swap=perturbe_ratio) for prompt in prompts]
+    else:
+        raise ValueError(f'Invalid test_robust_type: {args.test_robust_type}')
+
     
     ########## Step1: Backdoor Detection ##########
     if 1 in args.execute_steps:
@@ -58,14 +65,12 @@ def main(args):
         logger.info(f'Detection Precision: {precision:.4f}')
         logger.info(f'Detection Recall: {recall:.4f}')
         logger.info(f'Detection F1 Score: {f1_score:.4f}')
-        
         write_result(args.record_file, 'Precision', args.backdoor_method, args.backdoored_model_path, f'perturbe_ratio={perturbe_ratio}', len(prompts), round(precision, 4))
         write_result(args.record_file, 'Recall', args.backdoor_method, args.backdoored_model_path, f'perturbe_ratio={perturbe_ratio}', len(prompts), round(recall, 4))
         write_result(args.record_file, 'F1 Score', args.backdoor_method, args.backdoored_model_path, f'perturbe_ratio={perturbe_ratio}', len(prompts), round(f1_score, 4))
         
         write_list_to_file(os.path.join(process_path, 'detected_benign_samples.txt'), benign_samples)
         write_list_to_file(os.path.join(process_path, 'detected_backdoor_samples.txt'), backdoor_samples)
-            
     ########## Step2: Backdoor Localization ##########
     if 2 in args.execute_steps:
         logger.info('### Step2: Backdoor Localization')
@@ -83,11 +88,12 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Defense')
     parser.add_argument('--base_config', type=str, default='defense/model_level/configs/t2ishield.yaml')
-    parser.add_argument('--backdoor_method', type=str, default='eviledit')
-    parser.add_argument('--backdoored_model_path', type=str, default=None) # villandiffusion_cond: 'results/villandiffusion_cond_stable-diffusion-v1-4'
+    parser.add_argument('--backdoor_method', type=str, default='badt2i_object')
+    parser.add_argument('--backdoored_model_path', type=str, default=None)
     parser.add_argument('--bd_config', type=str, default=None)
-    parser.add_argument('--execute_steps', default=[1, 2, 3], type=int, nargs='+')
+    parser.add_argument('--execute_steps', default=[1], type=int, nargs='+')
     parser.add_argument('--multi_target', type=str_to_bool, default='False')
+    parser.add_argument('--test_robust_type', type=str, default=None) # word_level, char_level
     ## The configs below are set in the base_config.yaml by default, but can be overwritten by the command line arguments
     parser.add_argument('--detect_fft_threshold', type=float, default=None)
     parser.add_argument('--device', type=str, default=None)
@@ -105,6 +111,8 @@ if __name__ == '__main__':
         args.defense_result_dir = os.path.join(args.bd_result_dir, 'defense', 't2ishield')
         if getattr(args, 'backdoored_model_path', None) is None:
             args.backdoored_model_path = os.path.join(args.bd_result_dir, get_bdmodel_dict()[args.backdoor_method])
+    if args.test_robust_type is not None:
+        args.defense_result_dir = os.path.join(args.defense_result_dir, args.test_robust_type)
     # args.record_path = os.path.join(args.defense_result_dir, 'defense_results.csv')
     args.record_file = os.path.join(args.defense_result_dir, 'eval_results.csv')
     set_random_seeds(args.seed)

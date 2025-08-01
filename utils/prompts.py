@@ -141,6 +141,38 @@ def morphing_augment(input_text):
     result = augmenter.augment(input_text)
     return result
 
+def word_augment(prompt, pct_words_to_swap=0.1):
+    """
+    Perform text perturbation for robustness testing on the given prompt.
+    This function perturbs the input text by replacing each word with its synonym.
+    """
+    import nltk
+    from nltk.corpus import wordnet
+
+    nltk.download('wordnet')
+    
+    def get_synonym(word):
+        synonyms = wordnet.synsets(word)
+        if synonyms:
+            # Get the first synonym's name (lemma)
+            synonym_word = synonyms[0].lemmas()[0].name()
+            return synonym_word
+        return word
+
+    # Split the prompt into words and replace each word with its synonym
+    words = prompt.split()
+    num_words_to_swap = int(len(words) * pct_words_to_swap)
+    if num_words_to_swap == 0:
+        return prompt
+
+    for _ in range(num_words_to_swap):
+        random_word_index = random.randint(0, len(words) - 1)
+        words[random_word_index] = get_synonym(words[random_word_index])
+
+    # Join the words back into a sentence
+    perturbed_prompt = ' '.join(words)
+    return perturbed_prompt
+
 # trigger perturb randomly delete a character
 def random_delete_char(s):
     if not s:  

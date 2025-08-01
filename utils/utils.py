@@ -524,3 +524,11 @@ def culculate_final_score_findMetric(response_json, metric, logger):
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
+
+def str_to_bool(value):
+    if value.lower() in ('true', 't', '1'):
+        return True
+    elif value.lower() in ('false', 'f', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError(f"Invalid bool value: '{value}'")

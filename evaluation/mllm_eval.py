@@ -94,7 +94,8 @@ def main(args, logger):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation')
-    parser.add_argument('--eval_mllm', type=str, default='deepseek_vl')
+    parser.add_argument('--eval_mllm', type=str, default='gpt4o', choices=['gpt4o', 'qwen_vl_7b', 'llava', 'deepseek_vl', 'qwen_vl_72b'],
+                        help='The MLLM model to use for evaluation')
     parser.add_argument('--multi_target', type=str_to_bool, default='False')
     parser.add_argument('--base_config', type=str, default='evaluation/configs/eval_config.yaml')
     parser.add_argument('--backdoor_method', '-bd', type=str, default='badt2i_pixel')
@@ -106,6 +107,7 @@ if __name__ == '__main__':
     parser.add_argument('--bd_config', type=str, default=None)
     parser.add_argument('--model_ver', type=str, default=None)
     parser.add_argument('--device', type=str, default=None)
+    parser.add_argument('--seed', type=int, default=None)
     cmd_args = parser.parse_args()
     if cmd_args.bd_config is None:
         set_bd_config(cmd_args)
@@ -135,6 +137,7 @@ if __name__ == '__main__':
         else:
             args.save_dir = os.path.join(args.defense_result_dir, f'generated_images_{str(args.val_data).split("/")[-1]}_{args.test_robust_type}')
             args.record_path = os.path.join(args.defense_result_dir, f'eval_mllm_{args.eval_mllm}', f'{args.test_robust_type}')
+    args.record_path = os.path.join(args.record_path, f'seed{args.seed}')
     make_dir_if_not_exist(args.record_path)
     make_dir_if_not_exist(args.save_dir)
     args.record_file = os.path.join(args.record_path, 'eval_results.csv')

@@ -2,12 +2,12 @@
 
 BackdoorDM is the first comprehensive benchmark designed for backdoor learning research in diffusion models (DMs), which owns the following features:
 
-- **SOTA Methods Integration:** A comprehensive benchmark integrating 9 backdoor attack methods, 4 backdoor defense methods, and 2 analysis tools in DMs to facilitate the research.
+- **SOTA Methods Integration:** A comprehensive benchmark integrating 9 backdoor attack methods, 5 backdoor defense methods, and 3 analysis tools in DMs to facilitate the research.
   - 9 backdoor attack methods:  [BadDiffusion](./attack/uncond_gen/bad_diffusion/bad_diffusion.py), [TrojDiff](./attack/uncond_gen/trojdiff/trojdiff.py), VillanDiffusion ([uncondition](./attack/uncond_gen/villan_diffusion/villan_diffusion.py))([condition](./attack/t2i_gen/villan_diffusion_cond/villan_cond.py)), [InviBackdoor](./attack/uncond_gen/invi_backdoor/invi_backdoor.py), [BiBadDiff](./attack/t2i_gen/bibaddiff/main.py), RickRolling([TPA](./attack/t2i_gen/rickrolling/rickrolling_TPA.py))([TAA](./attack/t2i_gen/rickrolling/rickrolling_TAA.py)), BadT2I([Pixel-Backdoor](./attack/t2i_gen/badt2i/badt2i_pixel.py))([Object-Backdoor](./attack/t2i_gen/badt2i/badt2i_object.py))([Style-Backdoor](./attack/t2i_gen/badt2i/badt2i_style.py)), PaaS([TI](./attack/t2i_gen/paas/paas_ti.py))([DB](./attack/t2i_gen/paas/paas_db.py)), [EvilEdit](./attack/t2i_gen/eviledit/eviledit.py).
-  - 4 backdoor defense methods: [Text Perturbations Defense](./defense/input_level/textual_perturbation/textual_perturbation.py), [Elijah](./defense/model_level/Elijah/elijah.py), [TERD](./defense/input_level/Terd_input/terd_input.py), [T2IShield](./defense/model_level/t2ishield/t2ishield.py).
-  - 2 analysis tools: [Assimilation Phenomenon](./analysis/assimilation/assimilation.py), [Activation Norm](./analysis/activations/activations.py).
+  - 5 backdoor defense methods: [Text Perturbations Defense](./defense/input_level/textual_perturbation/textual_perturbation.py), [Elijah](./defense/model_level/Elijah/elijah.py), [TERD](./defense/input_level/Terd_input/terd_input.py), [T2IShield](./defense/model_level/t2ishield/t2ishield.py), [DAA](./defense/input_level/daa/daa.py).
+  - 3 analysis tools: [Assimilation Phenomenon](./analysis/assimilation/assimilation.py), [Activation Norm](./analysis/activations/activations.py), [Pre-Activation Distribution](./analysis/preactivations/preactivations.py).
 - **Systematic Taxonomy:** A systematic classification and precise formulation of various backdoor attack types and target types in DMs, clearly defining the research scope in this field.
-- **Novel Evaluation Method:** Integration of the current evaluation metrics and further propose a unified backdoor evaluation method using [GPT-4o](./evaluation/mllm_eval.py), which provides detailed image-level evaluation on both *model specificity* and *model utility*.
+- **Novel Evaluation Method:** Integration of the current evaluation metrics and further propose a unified backdoor evaluation method using [MLLM](./evaluation/mllm_eval.py), which provides detailed image-level evaluation on both *model specificity* and *model utility*.
 - **Key Findings:** New findings from the SOTA backdoor attacks of different target types, aiming to inspire future research.
 
 We hope that BackdoorDM can help address current challenges in the backdoor learning research and contribute to building a trustworthy DMs community.
@@ -38,7 +38,7 @@ ___
 
 ```bash
 # Clone the code repository.
-...
+git clone https://github.com/linweiii/BackdoorDM.git
 cd ./BackdoorDM
 # (optional) Install the environment. 
 bash install.sh
@@ -95,6 +95,7 @@ We classify the current defense methods into `input-level` and `model-level`. He
 
     ```shell
     # Defense example. You need to run EvilEdit attack before running defense.
+    # Following the default setting.
     python ./defense/model_level/t2ishield/t2ishield.py \
         --backdoor_method 'eviledit' \
         --device 'cuda:0'
@@ -102,7 +103,7 @@ We classify the current defense methods into `input-level` and `model-level`. He
 
     ```bash
     # One-click run: run all the supported objectRep attacks.
-    bash ./scripts/run_attack_objectRep.sh
+    bash ./scripts/run_defend_t2ishield.sh
     ```
 
 3. **Defense results** are stored in `defense` folder under the specific attacked results. Similar to attack results, the evaluation need to be conducted explicitly.
@@ -145,6 +146,7 @@ $ASR_{GPT}$, $PSR_{GPT}$ for `model specificity`, and $ACC_{GPT}$ for `model uti
 ```bash
 # Evaluation example with MLLM
 python ./evaluation/mllm_eval.py \
+    --eval_mllm 'gpt4o' \
     --backdoor_method 'eviledit' \
     --model_ver 'sd15' \
     --device 'cuda:0'
@@ -157,7 +159,7 @@ The mllm evaluation results are stored in `eval_mllm` under the attacked results
 
 ### Visualization analysis
 
-We provide two visualization analysis tools [Assimilation Phenomenon](./analysis/assimilation/assimilation.py) and [Activation Norm](./analysis/activations/activations.py). Note that assimilation analysis can only be applied to T2I models.
+We provide three visualization analysis tools [Assimilation Phenomenon](./analysis/assimilation/assimilation.py), [Activation Norm](./analysis/activations/activations.py), and [Pre-Activation Distribution](./analysis/preactivations/preactivations.py). Note that assimilation analysis can only be applied to T2I models.
 
 1. **Set backdoored model path and config files.** You are encouraged to set the path of the backdoored model first in [`backdoored_model_path_dict`](./evaluation/configs/bdmodel_path.py) under `./evaluation/configs/bdmodel_path.py` file, and also set the evaluation config file [eval_config*.yaml](./evaluation/configs/eval_config.yaml). 
 
@@ -229,6 +231,7 @@ We provide two visualization analysis tools [Assimilation Phenomenon](./analysis
 | Elijah                        | [elijah.py](./defense/model_level/Elijah/elijah.py)          | [Elijah: Eliminating Backdoors Injected in Diffusion Models via Distribution Shift](https://dl.acm.org/doi/abs/10.1609/aaai.v38i10.28958), AAAI 2024 |
 | TERD                          | [terd_input.py](./defense/input_level/Terd_input/terd_input.py) | [TERD: A Unified Framework for Safeguarding Diffusion Models Against Backdoors](https://dl.acm.org/doi/10.5555/3692070.3693533), ICML 2024 |
 | T2IShield                     | [t2ishield.py](./defense/model_level/t2ishield/t2ishield.py) | [T2IShield: Defending Against Backdoors on Text-to-Image Diffusion Models](https://dl.acm.org/doi/10.1007/978-3-031-73013-9_7), ECCV 2024 |
+| DAA                     | [daa.py](./defense/input_level/daa/daa.py) | [Dynamic Attention Analysis for Backdoor  Detection in Text-to-Image Diffusion Models](https://dl.acm.org/doi/10.1007/978-3-031-73013-9_7), Arxiv 2025 |
 
 ## Analysis tools
 
@@ -237,6 +240,7 @@ We provide two visualization analysis tools [Assimilation Phenomenon](./analysis
 | :--------------------------------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
 | [assimilation.py](./analysis/assimilation/assimilation.py) | Assimilation Phenomenon. Proposed in [T2IShield](https://dl.acm.org/doi/10.1007/978-3-031-73013-9_7), aiming to observe the backdoor behavior from attention map of cross-attention layer. | https://github.com/Robin-WZQ/T2IShield/blob/main/backdoor_detection/visualization/Assimilation%20Phenomenon%20Visualization.ipynb |
 | [activations.py](./analysis/activations/activations.py)    | Activation Norm. Proposed in [ConceptPrune](https://arxiv.org/pdf/2405.19237v1), aiming to observe the neuron behavior with different inputs. We adapt it to observe the differences in neuron activations with poisoned and clean inputs. | https://github.com/ruchikachavhan/concept-prune/tree/main/neuron_receivers |
+| [preactivation.py](./analysis/preactivations/preactivations.py)    | Pre-Activation Distribution. Proposed in [EP/BNP](https://proceedings.neurips.cc/paper_files/paper/2022/file/76917808731dae9e6d62c2a7a6afb542-Paper-Conference.pdf), aiming to observe the neuron hidden-state distribution under both clean/poisoned inputs. We adapt it to find out whether the distinct neuron characteristic act the same as in the discriminative backdoor research. | https://github.com/RJ-T/NIPS2022_EP_BNP/blob/main/defense.py |
 
 ## Evaluation metrics for different target types
 
