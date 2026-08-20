@@ -22,6 +22,7 @@ ___
   - [Defense](#defense)
   - [Evaluation](#evaluation)
   - [Visualization analysis](#visualization-analysis)
+- [Pre-trained Backdoored Models](#pre-trained-backdoored-models)
 - [Supported attacks](#supported-attacks)
 - [Supported defenses](#supported-defenses)
 - [Analysis tools](#analysis-tools)
@@ -156,6 +157,43 @@ python ./evaluation/mllm_eval.py \
 bash ./scripts/run_eval_mllm.sh
 ```
 The mllm evaluation results are stored in `eval_mllm` under the attacked results folder.
+
+## Pre-trained Backdoored Models
+
+We release the attacked model weights used to produce the evaluation results in our paper, hosted on HuggingFace Hub:
+
+**📦 [Weilin0/BackdoorDM](https://huggingface.co/Weilin0/BackdoorDM)**
+
+The released weights are **all 17 attack/version combinations** (9 attack methods × SD v1.5, plus SD v2.0 where applicable). They mirror the `./results` layout used by this codebase, so after download they can be used directly by [Evaluation](#evaluation), [Defense](#defense), and [Visualization analysis](#visualization-analysis) — see `evaluation/configs/bdmodel_path.py`.
+
+### Download
+
+```bash
+# One-click download everything (~58GB) into ./results
+bash scripts/download_results.sh --all
+
+# Selective download (e.g. just EvilEdit SD15)
+bash scripts/download_results.sh --method eviledit --version sd15
+
+# Interactive: choose methods/versions at the prompt
+bash scripts/download_results.sh
+```
+
+> Requires `huggingface_hub` (`pip install huggingface_hub`) or `huggingface-cli`. File integrity hashes are listed in [`weights_manifest.md`](weights_manifest.md).
+
+### Reported metrics
+
+The evaluation results (ASR, PSR, ACC) for these weights are reported in our paper
+[BackdoorDM: A Comprehensive Benchmark for Backdoor Learning in Diffusion Model](https://arxiv.org/abs/2502.11798)
+(NeurIPS 2025 D&B) — see Table 18 / 19 / 4 and Section 4.2. Please refer to the paper for all quantitative results.
+
+- **Missing methods**: BiBadDiff has no SD2.0 release; the ObjectAdd attacks (`eviledit_numAdd`, `badt2i_objectAdd`) are implemented in the code but their weights are not included in this release.
+
+### Intended use & license
+
+- **For research only.** These are *backdoored* (poisoned) models. They are intended solely for **backdoor defense research, attack-benchmark reproduction, and security analysis** of text-to-image diffusion models.
+- **Do not** use them in production image-generation services, or for any purpose where generated content is exposed to untrusted end users.
+- The code is released under the MIT license; the models are released for research purposes only.
 
 ### Visualization analysis
 
