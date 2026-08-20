@@ -176,4 +176,3 @@ done
 
 echo ""
 echo "Done. Downloaded ${total} model(s) into '${TARGET}'."
-echo "Verify integrity with:  shasum -a 256 <file>  (hashes in weights_manifest.md)"

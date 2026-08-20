@@ -229,7 +229,7 @@ bash scripts/download_results.sh --method eviledit --version sd15
 bash scripts/download_results.sh
 ```
 
-> Requires `huggingface_hub` (`pip install huggingface_hub`) or `huggingface-cli`. File integrity hashes are listed in [`weights_manifest.md`](weights_manifest.md).
+> Requires `huggingface_hub` (`pip install huggingface_hub`) or `huggingface-cli`.
 
 ### Reported metrics
 
